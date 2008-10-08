@@ -215,16 +215,16 @@
 
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
-  (multiple-value-bind (whole-match matches) (scan-to-strings "sip:(.*@)([^;]+)(;.*)?(\\?.*)?" str) ; TODO: not splitting on \\?
+  (multiple-value-bind (whole-match matches) (scan-to-strings "sip:(.*@)([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
     (declare (ignore whole-match))
     (cond
       (matches
        (let ((uri (make-instance 'sip-uri))
              (len (length matches)))
-         (when (> len 0) (setf (user-info uri) (regex-replace "@$" (aref matches 0) "")))
+         (when (> len 0) (setf (user-info uri) (string-right-trim '(#\@) (aref matches 0))))
          (when (> len 1) (setf (hostport uri) (aref matches 1)))
-         (when (> len 2) (parse-uri-parms uri (regex-replace "^;" (aref matches 2) "")))
-         (when (> len 3) (parse-uri-headers uri (regex-replace "^\\?" (aref matches 3) "")))
+         (when (> len 2) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 2))))
+         (when (> len 4) (parse-uri-headers uri (aref matches 4)))
          uri))
       (t (error "Invalid SIP-URI: ~a" str)))))
 
