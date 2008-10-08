@@ -2,7 +2,9 @@
 (defpackage :cl-sip.util
   (:use :common-lisp
         :cl-ppcre)
-  (:export :symbol-name-alist))
+  (:export :it
+           :aif
+           :symbol-name-alist))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp
@@ -12,3 +14,11 @@
            :responses
            :headers))
 
+(defpackage :cl-sip.client
+  (:use :common-lisp
+        :cl-sip.util
+        :cl-sip.msg)
+  (:export :make-client
+           :call
+           :answer))
+           

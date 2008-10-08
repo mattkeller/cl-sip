@@ -14,6 +14,7 @@
   :serial t ;; the dependencies are linear.
   :components ((:file "packages")
                (:file "util")
-               (:file "msg" :depends-on ("packages")))
+               (:file "msg" :depends-on ("util"))
+               (:file "client" :depends-on ("msg")))
   :depends-on (:cl-ppcre))
 
