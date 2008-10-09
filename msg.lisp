@@ -1,15 +1,14 @@
 ;;;; msg.lisp -- SIP msg parsing and constructing
 
-;; Data constructs
-;; * Message: type, headers, tags
-;; * sip uri
-;; * Dialog: session, past msgs
-;; * Session: state, user
-;; * Response codes: 301, ...
-;; * udp endpoint: proxy, port
-;; * user: username, domain, passwd, proxy
-;; * proxy
-;; * timers: t1, t2,
+; TODO
+; * defconstant is a pain!
+; * review rfc for parsing details
+; * handle multi headers w/ same name (comma-sep lists)
+; * handle sips uris?
+; * generic parse-msg fn
+; * print-object for msg
+; * parsing of headers
+; * msg construction & "toString"
 
 (in-package :cl-sip.msg)
 
@@ -27,6 +26,7 @@
        (car (car cl-sip.util:it))
        nil))
 
+;; case ignored as per rfc
 (defconstant +headers+ (symbol-name-alist
                         '(accept
                           accept-encoding
