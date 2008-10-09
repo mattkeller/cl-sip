@@ -191,6 +191,23 @@
             (parse-version (third fields)))
       (error "Invalid SIP-URI line: ~a " line))))
 
+(defun parse-status-line (line)
+  "Parse first line of response msg: return '(version code reason-phrase)"
+  (multiple-value-bind (whole-match fields) (scan-to-strings "([^ ]*)? ([^ ]*)? (.*)" line)
+    (declare (ignore whole-match))
+    (if (= (length fields) 3)
+        (list (parse-version (aref fields 0))
+              (parse-response-code (aref fields 1))
+              (aref fields 2))
+        (error "Invalid Status-Line: ~a" line))))
+
+(defun parse-response-code (str)
+  (aif (parse-integer str :junk-allowed t)
+       (if (is-response cl-sip.util:it)
+           cl-sip.util:it
+           (error "Invalid Status-Code: ~a" str))
+       (error "Invalid Status-Code: ~a" str)))
+
 (defun parse-method (m)
   (let ((msym (is-method-name m)))
     (if msym msym (error "Invalid method: ~a" m))))
