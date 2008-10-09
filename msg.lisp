@@ -312,23 +312,36 @@
 
 (defun parse-bodies (str) str)
 
+(defun parse-header-line (str)
+  "Give '(hdr-symbol . hdr-value-string) if given a legal header line, otherwise nil"
+  (let ((fields (split ":" str)))
+    (cond
+      ((and (eql (length fields) 2))
+       (let ((hdr (is-header-name (first fields))))
+         (if hdr
+             (cons hdr (trim-ws (second fields)))
+             nil)))
+      (t nil))))
+
 (defun parse-headers (lines)
   "Parser header section, return alist of header/header-value pairs; ignore unknown headers"
-  (let ((headers nil)
-        (last-hdr nil))
-    (dolist (line lines)
-      (cond
-        ((string= line "") ; the rest is body
-         (return-from parse-headers headers))
-        ((and (scan "^[\\s+]" line) last-hdr)
-         (let ((last-hdr-cons (assoc last-hdr headers))) ; continuation of last header
-           (when last-hdr-cons
-             (rplacd last-hdr-cons (concatenate 'string (cdr last-hdr-cons) " " (trim-ws line))))))
-        (t ; new header
-         (let ((fields (split ":" line)))
-           (when (and (eql (length fields) 2))
-             (let ((hdr (is-header-name (first fields))))
-               (when hdr
-                 (setf headers (acons hdr (trim-ws (second fields)) headers))
-                 (setf last-hdr hdr))))))))
-    headers))
+  (labels ((parse-line (line)
+             "Parse line to either nil, an string, or a '(hdr-symbol . hdr-value) cons"
+             (cond
+               ((string= line "") nil)
+               ((scan "^[\\s+]" line) (trim-ws line))
+               (t (parse-header-line line))))
+           (multiline-hdr-join (alist y)
+             "If a string follows a cons in alist, squash the string onto the cdr of the cons"
+             (cond ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
+                    (multiline-hdr-join (list alist) y))
+                   ((consp y) ; alist is an alist, y is a cons
+                    (list alist y))
+                   (t ; alist is a cons, y is an atom
+                    (let* ((hdr-cons (first (last alist)))
+                           (hdr (car hdr-cons))
+                           (oldval (cdr hdr-cons)))
+                      (acons hdr (concatenate 'string oldval " " y) (butlast alist)))))))
+    (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines)))))
+
+
