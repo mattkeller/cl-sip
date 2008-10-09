@@ -291,12 +291,12 @@
   (let ((headers nil))
     (dolist (line lines)
       (when (string= line "") (return-from parse-headers headers))
-      (let ((fields (split ": " line)))
+      (let ((fields (split ":" line)))
         (when (and (eql (length fields) 2)
                    (is-header-name (first fields)))
           (setf headers (acons
                          (is-header-name (first fields))
-                         (second fields)
+                         (trim-ws (second fields))
                          headers)))))
     headers))
 

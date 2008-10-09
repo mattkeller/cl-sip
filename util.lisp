@@ -22,3 +22,7 @@
 
 (defmacro awhen (test &body body)
   `(when-bind it ,test ,@body))
+
+(defun trim-ws (str)
+  (let ((ws '(#\Space #\Tab)))
+    (string-left-trim ws (string-right-trim ws str))))

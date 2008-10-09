@@ -4,7 +4,9 @@
         :cl-ppcre)
   (:export :it
            :aif
-           :symbol-name-alist))
+           :awhen
+           :symbol-name-alist
+           :trim-ws))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp
