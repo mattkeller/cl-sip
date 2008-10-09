@@ -193,7 +193,7 @@
 
 (defun parse-status-line (line)
   "Parse first line of response msg: return '(version code reason-phrase)"
-  (multiple-value-bind (whole-match fields) (scan-to-strings "([^ ]*)? ([^ ]*)? (.*)" line)
+  (multiple-value-bind (whole-match fields) (scan-to-strings "([^ ]+)? (\\d{3})? (.+)" line)
     (declare (ignore whole-match))
     (if (= (length fields) 3)
         (list (parse-version (aref fields 0))
