@@ -13,6 +13,8 @@
 
 (in-package :cl-sip.msg)
 
+;;; SIP Constants ------------------------------------------------------
+
 (defconstant +crlf+ (format nil "~a~a" #\Return #\Linefeed))
 
 (defconstant +methods+ (symbol-name-alist '(invite ack options bye cancel register options info)))
@@ -80,72 +82,67 @@
        (car (car cl-sip.util:it))
        nil))
 
-(defconstant +responses+ '((100 . "Trying")
-                           (180 . "Ringing")
-                           (181 . "Call Is Being Forwarded")
-                           (182 . "Queued")
-                           (183 . "Session Progress")
-                           (200 . "Ok")
-                           (300 . "Multiple Choices")
-                           (301 . "Moved Permanently")
-                           (302 . "Moved Temporarily")
-                           (305 . "Use Proxy")
-                           (380 . "Alternative Service")
-                           (400 . "Bad Request")
-                           (401 . "Unauthorized")
-                           (402 . "Payment Required")
-                           (403 . "Forbidden")
-                           (404 . "Not Found")
-                           (405 . "Method Not Allowed")
-                           (406 . "Not Acceptable")
-                           (407 . "Proxy Authentication Required")
-                           (408 . "Request Timeout")
-                           (410 . "Gone")
-                           (413 . "Request Entity Too Large")
-                           (414 . "Request-URI Too Large")
-                           (415 . "Unsupported Media Type")
-                           (416 . "Unsupported URI Scheme")
-                           (420 . "Bad Extension")
-                           (421 . "Extension Required")
-                           (423 . "Interval Too Brief")
-                           (480 . "Temporarily not available")
-                           (481 . "Call Leg/Transaction Does Not Exist")
-                           (482 . "Loop Detected")
-                           (483 . "Too Many Hops")
-                           (484 . "Address Incomplete")
-                           (485 . "Ambiguous")
-                           (486 . "Busy Here")
-                           (487 . "Request Terminated")
-                           (488 . "Not Acceptable Here")
-                           (491 . "Request Pending")
-                           (493 . "Undecipherable")
-                           (500 . "Internal Server Error")
-                           (501 . "Not Implemented")
-                           (502 . "Bad Gateway")
-                           (503 . "Service Unavailable")
-                           (504 . "Server Time-out")
-                           (505 . "SIP Version not supported")
-                           (513 . "Message Too Large")
-                           (600 . "Busy Everywhere")
-                           (603 . "Decline")
-                           (604 . "Does not exist anywhere")
-                           (606 . "Not Acceptable")))
+(defconstant +status-codes+ '((100 . "Trying")
+                              (180 . "Ringing")
+                              (181 . "Call Is Being Forwarded")
+                              (182 . "Queued")
+                              (183 . "Session Progress")
+                              (200 . "Ok")
+                              (300 . "Multiple Choices")
+                              (301 . "Moved Permanently")
+                              (302 . "Moved Temporarily")
+                              (305 . "Use Proxy")
+                              (380 . "Alternative Service")
+                              (400 . "Bad Request")
+                              (401 . "Unauthorized")
+                              (402 . "Payment Required")
+                              (403 . "Forbidden")
+                              (404 . "Not Found")
+                              (405 . "Method Not Allowed")
+                              (406 . "Not Acceptable")
+                              (407 . "Proxy Authentication Required")
+                              (408 . "Request Timeout")
+                              (410 . "Gone")
+                              (413 . "Request Entity Too Large")
+                              (414 . "Request-URI Too Large")
+                              (415 . "Unsupported Media Type")
+                              (416 . "Unsupported URI Scheme")
+                              (420 . "Bad Extension")
+                              (421 . "Extension Required")
+                              (423 . "Interval Too Brief")
+                              (480 . "Temporarily not available")
+                              (481 . "Call Leg/Transaction Does Not Exist")
+                              (482 . "Loop Detected")
+                              (483 . "Too Many Hops")
+                              (484 . "Address Incomplete")
+                              (485 . "Ambiguous")
+                              (486 . "Busy Here")
+                              (487 . "Request Terminated")
+                              (488 . "Not Acceptable Here")
+                              (491 . "Request Pending")
+                              (493 . "Undecipherable")
+                              (500 . "Internal Server Error")
+                              (501 . "Not Implemented")
+                              (502 . "Bad Gateway")
+                              (503 . "Service Unavailable")
+                              (504 . "Server Time-out")
+                              (505 . "SIP Version not supported")
+                              (513 . "Message Too Large")
+                              (600 . "Busy Everywhere")
+                              (603 . "Decline")
+                              (604 . "Does not exist anywhere")
+                              (606 . "Not Acceptable")))
 
-(defun is-response (r)
-  (if (assoc r +responses+) t nil))
+(defun is-status-code (r)
+  (if (assoc r +status-codes+) t nil))
 
-(defun response-str (r)
-  (cdr (assoc r +responses+)))
+(defun status-code-str (r)
+  (cdr (assoc r +status-codes+)))
 
-;; message = request | response
+;;; Message classes ----------------------------------------------------
 
-(defclass request ()
-  ((method  :initarg :method
-            :initform (error "Need a method")
-            :reader meth)
-   (uri     :initarg :uri
-            :reader uri)
-   (version :initarg :version
+(defclass msg ()
+  ((version :initarg :version
             :initform nil
             :reader version)
    (headers :initarg :headers
@@ -155,10 +152,32 @@
             :initform nil
             :reader bodies)))
 
+(defclass response (msg)
+  ((status-code :initarg :status-code
+                :initform (error "Need a status-code")
+                :reader status-code)))
+
+(defmethod print-object ((r response) stream)
+  (print-unreadable-object (r stream :identity t :type t)
+    (format stream "Status-code: ~a~% Version: ~a~% Headers: ~{~a~}~%"
+            (status-code r) (version r) (headers r))))
+
+(defclass request (msg)
+  ((method  :initarg :method
+            :initform (error "Need a method")
+            :reader meth)
+   (uri     :initarg :uri
+            :reader uri)))
+
 (defmethod print-object ((r request) stream)
   (print-unreadable-object (r stream :identity t :type t)
     (format stream "Method: ~a~% Uri: ~a~% Version: ~a~% Headers: ~{~a~}~%"
             (meth r) (uri r) (version r) (headers r))))
+
+(defmethod has-header ((m msg) header)
+  (assoc header (headers m)))
+
+;;; Parsing ------------------------------------------------------------
 
 (defun parse-request (str)
   (multiple-value-bind (msg-lines body) (split-msg str)
@@ -172,8 +191,16 @@
                        :headers headers
                        :bodies  (parse-bodies body))))))
 
-(defmethod has-header ((r request) header)
-  (assoc header (headers r)))
+(defun parse-response (str)
+  (multiple-value-bind (msg-lines body) (split-msg str)
+    (when msg-lines
+      (let ((status-vals (parse-status-line (first msg-lines)))
+            (headers (parse-headers (cdr msg-lines))))
+        (make-instance 'response
+                       :status-code (second status-vals)
+                       :version (first status-vals)
+                       :headers headers
+                       :bodies  (parse-bodies body))))))
 
 (defun split-msg (str)
   "Return values: all msg data above the bodies split by CRLF, body section"
@@ -203,7 +230,7 @@
 
 (defun parse-response-code (str)
   (aif (parse-integer str :junk-allowed t)
-       (if (is-response cl-sip.util:it)
+       (if (is-status-code cl-sip.util:it)
            cl-sip.util:it
            (error "Invalid Status-Code: ~a" str))
        (error "Invalid Status-Code: ~a" str)))
@@ -230,7 +257,6 @@
   (print-unreadable-object (obj stream :identity t :type t)
     (format stream "User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
             (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
-
 
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
