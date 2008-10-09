@@ -288,16 +288,23 @@
 
 (defun parse-headers (lines)
   "Parser header section, return alist of header/header-value pairs; ignore unknown headers"
-  (let ((headers nil))
+  (let ((headers nil)
+        (last-hdr nil))
     (dolist (line lines)
-      (when (string= line "") (return-from parse-headers headers))
-      (let ((fields (split ":" line)))
-        (when (and (eql (length fields) 2)
-                   (is-header-name (first fields)))
-          (setf headers (acons
-                         (is-header-name (first fields))
-                         (trim-ws (second fields))
-                         headers)))))
+      (cond
+        ((string= line "") ; the rest is body
+         (return-from parse-headers headers))
+        ((and (scan "^[\\s+]" line) last-hdr)
+         (let ((last-hdr-cons (assoc last-hdr headers))) ; continuation of last header
+           (when last-hdr-cons
+             (rplacd last-hdr-cons (concatenate 'string (cdr last-hdr-cons) " " (trim-ws line))))))
+        (t ; new header
+         (let ((fields (split ":" line)))
+           (when (and (eql (length fields) 2))
+             (let ((hdr (is-header-name (first fields))))
+               (when hdr
+                 (setf headers (acons hdr (trim-ws (second fields)) headers))
+                 (setf last-hdr hdr))))))))
     headers))
 
 
