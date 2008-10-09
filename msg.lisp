@@ -13,127 +13,129 @@
 
 (in-package :cl-sip.msg)
 
-(defvar crlf (format nil "~a~a" #\Return #\Linefeed))
+(defconstant +crlf+ (format nil "~a~a" #\Return #\Linefeed))
 
-(defvar *methods* (symbol-name-alist '(invite ack options bye cancel register options info)))
+(defconstant +methods+ (symbol-name-alist '(invite ack options bye cancel register options info)))
 
 (defun is-method (m)
-  (if (assoc m *methods*) t nil))
+  (if (assoc m +methods+) t nil))
 
 (defun is-method-name (name)
-  (let ((s (member name *methods* :key #'cdr :test #'string-equal)))
-    (if s (car (car s)) nil)))
+  (aif (member name +methods+ :key #'cdr :test #'string-equal)
+       (car (car cl-sip.util:it))
+       nil))
 
-(defvar *headers* (symbol-name-alist
-                   '(accept
-                    accept-encoding
-                    accept-language
-                    alert-info
-                    allow
-                    authentication-info
-                    authorization
-                    call-id
-                    call-info
-                    contact
-                    content-disposition
-                    content-encoding
-                    content-language
-                    content-length
-                    content-type
-                    cseq
-                    date
-                    error-info
-                    expires
-                    extension-header
-                    from
-                    in-reply-to
-                    max-forwards
-                    mime-version
-                    min-expires
-                    organization
-                    priority
-                    proxy-authenticate
-                    proxy-authorization
-                    proxy-require
-                    record-route
-                    reply-to
-                    require
-                    retry-after
-                    route
-                    server
-                    subject
-                    supported
-                    timestamp
-                    to
-                    unsupported
-                    user-agent
-                    via
-                    warning
-                    www-authenticate)))
+(defconstant +headers+ (symbol-name-alist
+                        '(accept
+                          accept-encoding
+                          accept-language
+                          alert-info
+                          allow
+                          authentication-info
+                          authorization
+                          call-id
+                          call-info
+                          contact
+                          content-disposition
+                          content-encoding
+                          content-language
+                          content-length
+                          content-type
+                          cseq
+                          date
+                          error-info
+                          expires
+                          extension-header
+                          from
+                          in-reply-to
+                          max-forwards
+                          mime-version
+                          min-expires
+                          organization
+                          priority
+                          proxy-authenticate
+                          proxy-authorization
+                          proxy-require
+                          record-route
+                          reply-to
+                          require
+                          retry-after
+                          route
+                          server
+                          subject
+                          supported
+                          timestamp
+                          to
+                          unsupported
+                          user-agent
+                          via
+                          warning
+                          www-authenticate)))
 
 (defun is-header (h)
-  (if (assoc h *headers*) h nil))
+  (if (assoc h +headers+) h nil))
 
 (defun is-header-name (name)
-  (let ((h (member name *headers* :key #'cdr :test #'string-equal)))
-    (if h (car (car h)) nil)))
+  (aif (member name +headers+ :key #'cdr :test #'string-equal)
+       (car (car cl-sip.util:it))
+       nil))
 
-(defvar *responses* '((100 . "Trying")
-                      (180 . "Ringing")
-                      (181 . "Call Is Being Forwarded")
-                      (182 . "Queued")
-                      (183 . "Session Progress")
-                      (200 . "Ok")
-                      (300 . "Multiple Choices")
-                      (301 . "Moved Permanently")
-                      (302 . "Moved Temporarily")
-                      (305 . "Use Proxy")
-                      (380 . "Alternative Service")
-                      (400 . "Bad Request")
-                      (401 . "Unauthorized")
-                      (402 . "Payment Required")
-                      (403 . "Forbidden")
-                      (404 . "Not Found")
-                      (405 . "Method Not Allowed")
-                      (406 . "Not Acceptable")
-                      (407 . "Proxy Authentication Required")
-                      (408 . "Request Timeout")
-                      (410 . "Gone")
-                      (413 . "Request Entity Too Large")
-                      (414 . "Request-URI Too Large")
-                      (415 . "Unsupported Media Type")
-                      (416 . "Unsupported URI Scheme")
-                      (420 . "Bad Extension")
-                      (421 . "Extension Required")
-                      (423 . "Interval Too Brief")
-                      (480 . "Temporarily not available")
-                      (481 . "Call Leg/Transaction Does Not Exist")
-                      (482 . "Loop Detected")
-                      (483 . "Too Many Hops")
-                      (484 . "Address Incomplete")
-                      (485 . "Ambiguous")
-                      (486 . "Busy Here")
-                      (487 . "Request Terminated")
-                      (488 . "Not Acceptable Here")
-                      (491 . "Request Pending")
-                      (493 . "Undecipherable")
-                      (500 . "Internal Server Error")
-                      (501 . "Not Implemented")
-                      (502 . "Bad Gateway")
-                      (503 . "Service Unavailable")
-                      (504 . "Server Time-out")
-                      (505 . "SIP Version not supported")
-                      (513 . "Message Too Large")
-                      (600 . "Busy Everywhere")
-                      (603 . "Decline")
-                      (604 . "Does not exist anywhere")
-                      (606 . "Not Acceptable")))
+(defconstant +responses+ '((100 . "Trying")
+                           (180 . "Ringing")
+                           (181 . "Call Is Being Forwarded")
+                           (182 . "Queued")
+                           (183 . "Session Progress")
+                           (200 . "Ok")
+                           (300 . "Multiple Choices")
+                           (301 . "Moved Permanently")
+                           (302 . "Moved Temporarily")
+                           (305 . "Use Proxy")
+                           (380 . "Alternative Service")
+                           (400 . "Bad Request")
+                           (401 . "Unauthorized")
+                           (402 . "Payment Required")
+                           (403 . "Forbidden")
+                           (404 . "Not Found")
+                           (405 . "Method Not Allowed")
+                           (406 . "Not Acceptable")
+                           (407 . "Proxy Authentication Required")
+                           (408 . "Request Timeout")
+                           (410 . "Gone")
+                           (413 . "Request Entity Too Large")
+                           (414 . "Request-URI Too Large")
+                           (415 . "Unsupported Media Type")
+                           (416 . "Unsupported URI Scheme")
+                           (420 . "Bad Extension")
+                           (421 . "Extension Required")
+                           (423 . "Interval Too Brief")
+                           (480 . "Temporarily not available")
+                           (481 . "Call Leg/Transaction Does Not Exist")
+                           (482 . "Loop Detected")
+                           (483 . "Too Many Hops")
+                           (484 . "Address Incomplete")
+                           (485 . "Ambiguous")
+                           (486 . "Busy Here")
+                           (487 . "Request Terminated")
+                           (488 . "Not Acceptable Here")
+                           (491 . "Request Pending")
+                           (493 . "Undecipherable")
+                           (500 . "Internal Server Error")
+                           (501 . "Not Implemented")
+                           (502 . "Bad Gateway")
+                           (503 . "Service Unavailable")
+                           (504 . "Server Time-out")
+                           (505 . "SIP Version not supported")
+                           (513 . "Message Too Large")
+                           (600 . "Busy Everywhere")
+                           (603 . "Decline")
+                           (604 . "Does not exist anywhere")
+                           (606 . "Not Acceptable")))
 
 (defun is-response (r)
-  (if (assoc r *responses*) t nil))
+  (if (assoc r +responses+) t nil))
 
 (defun response-str (r)
-  (cdr (assoc r *responses*)))
+  (cdr (assoc r +responses+)))
 
 ;; message = request | response
 
@@ -175,9 +177,9 @@
 
 (defun split-msg (str)
   "Return values: all msg data above the bodies split by CRLF, body section"
-  (let ((fields (cl-ppcre:split (format nil "~a~a" crlf crlf) str)))
+  (let ((fields (cl-ppcre:split (format nil "~a~a" +crlf+ +crlf+) str)))
     (if fields
-        (values (cl-ppcre:split crlf (first fields)) (second fields))
+        (values (cl-ppcre:split +crlf+ (first fields)) (second fields))
         nil)))
 
 (defun parse-uri-line (line)
