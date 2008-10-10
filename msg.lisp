@@ -146,10 +146,24 @@
             :reader version)
    (headers :initarg :headers
             :initform nil
-            :reader headers)
+            :accessor headers)
    (bodies  :initarg  :bodies
             :initform nil
             :reader bodies)))
+
+(defmethod print-object ((m msg) stream)
+  (print-unreadable-object (m stream :identity t :type t)
+    (format stream "Version: ~a~% Headers: ~{~a~}~%"
+            (version m) (headers m))))
+
+;; TODO: only return first header of type 'header'
+(defmethod has-header ((m msg) header)
+  (assoc header (headers m)))
+
+;; TODO: prevent multiheader addition??
+(defmethod add-header ((m msg) header-symbol header-string)
+  (setf (headers m) (acons header-symbol header-string (headers m)))
+  m)
 
 (defclass response (msg)
   ((status-code :initarg :status-code
@@ -172,9 +186,6 @@
   (print-unreadable-object (r stream :identity t :type t)
     (format stream "Method: ~a~% Uri: ~a~% Version: ~a~% Headers: ~{~a~}~%"
             (meth r) (uri r) (version r) (headers r))))
-
-(defmethod has-header ((m msg) header)
-  (assoc header (headers m)))
 
 ;;; Parsing ------------------------------------------------------------
 
