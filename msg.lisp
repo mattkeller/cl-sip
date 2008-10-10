@@ -6,7 +6,7 @@
 ; * handle sips uris?
 ; * generic parse-msg fn
 ; * print-object for msg
-; * parsing of headers
+; * parsing of specific headers
 ; * msg construction & "toString"
 
 (in-package :cl-sip.msg)
@@ -386,3 +386,12 @@ comma separating their values."
     (combino (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
 
 
+;;; Testing utils ------------------------------------------------------
+
+(defun build-msg-str (hdr-lst &optional (body-lst nil))
+  (declare (ignore body-lst))
+  (concatenate 'string
+               (reduce #'(lambda (x y) (concatenate 'string x +crlf+ y)) hdr-lst)
+               +crlf+
+               +crlf+
+               "...fake-body..."))
