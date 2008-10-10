@@ -407,9 +407,10 @@ comma separating their values."
                ((string= line "") nil)
                ((scan "^[\\s+]" line) (cons 'continuation (trim-ws line)))
                (t (parse-header-line line))))
-           (multiline-hdr-join (alist y)
+           (multiline-hdr-join (&optional (alist nil) (y nil))
              "Squash together cdrs when 2nd cons has car of 'continuation"
-             (cond ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
+             (cond ((null y) nil)
+                   ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
                     (multiline-hdr-join (list alist) y))
                    ((eq (car y) 'continuation)
                     (let* ((hdr-cons (first (last alist))))
