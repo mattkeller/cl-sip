@@ -1,11 +1,13 @@
 ;;;; msg.lisp -- SIP msg parsing and constructing
 
 ; TODO
-; * review rfc for parsing details
 ; * handle sips uris?
 ; * parsing of specific headers
-; * msg construction & "toString"
-; * parse-headers does not catch a multline continuation as the first header line
+; * parse-headers does not catch a multline continuation as the first header line (well)
+; * put recommended important fields at top: via, to, from, etc
+; * disallow combining multiple fields for  WWW-Authenticate, Authorization, Proxy-Authenticate, and Proxy-Authorization
+; * disallow duplicate parmaters on a single header
+; * ignore disallowed headers based on msg type
 
 (in-package :cl-sip.msg)
 
@@ -23,61 +25,68 @@
        (car (car cl-sip.util:it))
        nil))
 
-;; case ignored as per rfc
-(defparameter +headers+ (symbol-name-alist
-                         '(accept
-                           accept-encoding
-                           accept-language
-                           alert-info
-                           allow
-                           authentication-info
-                           authorization
-                           call-id
-                           call-info
-                           contact
-                           content-disposition
-                           content-encoding
-                           content-language
-                           content-length
-                           content-type
-                           cseq
-                           date
-                           error-info
-                           expires
-                           extension-header
-                           from
-                           in-reply-to
-                           max-forwards
-                           mime-version
-                           min-expires
-                           organization
-                           priority
-                           proxy-authenticate
-                           proxy-authorization
-                           proxy-require
-                           record-route
-                           reply-to
-                           require
-                           retry-after
-                           route
-                           server
-                           subject
-                           supported
-                           timestamp
-                           to
-                           unsupported
-                           user-agent
-                           via
-                           warning
-                           www-authenticate)))
+(defparameter +headers+
+  (mapcar #'(lambda (s)
+              (cond ((atom s) (list s (symbol-name s)))
+                    ((consp s) (list (car s) (symbol-name (car s)) (symbol-name (cdr s))))))
+          '(accept
+            accept-encoding
+            accept-language
+            alert-info
+            allow
+            authentication-info
+            authorization
+            call-id
+            call-info
+            (contact . m)
+            content-disposition
+            (content-encoding . e)
+            content-language
+            (content-length . l)
+            (content-type . c)
+            cseq
+            date
+            error-info
+            expires
+            extension-header
+            (from . f)
+            in-reply-to
+            max-forwards
+            mime-version
+            min-expires
+            organization
+            priority
+            proxy-authenticate
+            proxy-authorization
+            proxy-require
+            record-route
+            reply-to
+            require
+            retry-after
+            route
+            server
+            (subject . s)
+            (supported . k)
+            timestamp
+            (to . t)
+            unsupported
+            user-agent
+            (via . v)
+            warning
+            www-authenticate))
+  "List of '(<header-symbol> <header-name>...)")
 
-(defun is-header (h)
-  (if (assoc h +headers+) h nil))
+(defun is-header (sym)
+  (dolist (h +headers+)
+    (when (eq sym (first h))
+      (return-from is-header (first h))))
+  nil)
 
 (defun is-header-name (name)
-  (aif (member name +headers+ :key #'cdr :test #'string-equal)
-       (car (car cl-sip.util:it))
-       nil))
+ (dolist (h +headers+)
+    (when (member name (cdr h) :test #'string-equal) ; must be case insensitive
+      (return-from is-header-name (first h))))
+  nil)
 
 (defparameter +status-codes+ '((100 . "Trying")
                                (180 . "Ringing")
