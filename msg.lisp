@@ -1,7 +1,6 @@
 ;;;; msg.lisp -- SIP msg parsing and constructing
 
 ; TODO
-; * handle sips uris?
 ; * parsing of specific headers
 ; * parse-headers does not catch a multline continuation as the first header line (well)
 ; * put recommended important fields at top: via, to, from, etc
@@ -229,7 +228,10 @@
 ;;; Sip-uri class ------------------------------------------------------
 
 (defclass sip-uri ()
-  ((user-info :initarg :user-info
+  ((scheme    :initarg :scheme
+              :initform 'sip
+              :accessor scheme)
+   (user-info :initarg :user-info
               :initform nil
               :accessor user-info)
    (hostport  :initarg :hostport
@@ -244,8 +246,8 @@
 
 (defmethod print-object ((obj sip-uri) stream)
   (print-unreadable-object (obj stream :identity t :type t)
-    (format stream "User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
-            (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
+    (format stream "Scheme: ~a; User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
+            (scheme obj) (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
 
 (defun alist-to-str-pairs (alist &optional (s1 "") (s2 "=")  (s3 nil))
   "Turn alist of name/value pairs into a string with various separators"
@@ -351,18 +353,24 @@ otherwise (values nil <sip-parse-error>)"
   (let ((msym (is-method-name m)))
     (if msym msym (sip-parse-error "Invalid method: ~a" m))))
 
+(defun parse-uri-scheme (str)
+  (cond ((string-equal str "sip") 'sip)
+        ((string-equal str "sips") 'sips)
+        (t (sip-parse-error "Invalid uri scheme: ~a" str))))
+
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
-  (multiple-value-bind (whole-match matches) (scan-to-strings "sip:(.*@)([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
+  (multiple-value-bind (whole-match matches) (scan-to-strings "(sips?):(.*@)([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
     (declare (ignore whole-match))
     (cond
       (matches
        (let ((uri (make-instance 'sip-uri))
              (len (length matches)))
-         (when (> len 0) (setf (user-info uri) (string-right-trim '(#\@) (aref matches 0))))
-         (when (> len 1) (setf (hostport uri) (aref matches 1)))
-         (when (> len 2) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 2))))
-         (when (> len 4) (parse-uri-headers uri (aref matches 4)))
+         (when (> len 0) (setf (scheme uri) (parse-uri-scheme (aref matches 0))))
+         (when (> len 1) (setf (user-info uri) (string-right-trim '(#\@) (aref matches 1))))
+         (when (> len 2) (setf (hostport uri) (aref matches 2)))
+         (when (> len 3) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 3))))
+         (when (> len 5) (parse-uri-headers uri (aref matches 5)))
          uri))
       (t (sip-parse-error "Invalid SIP-URI: ~a" str)))))
 
