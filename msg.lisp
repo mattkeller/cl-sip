@@ -178,44 +178,71 @@
 
 ;;; Parsing ------------------------------------------------------------
 
-(defun parse-request (str)
-  (multiple-value-bind (msg-lines body) (split-msg str)
-    (when msg-lines
-      (let ((uri-vals (parse-uri-line (first msg-lines)))
-            (headers (parse-headers (cdr msg-lines))))
-        (make-instance 'request
-                       :method  (first uri-vals)
-                       :uri     (second uri-vals)
-                       :version (third uri-vals)
-                       :headers headers
-                       :bodies  (parse-bodies body))))))
+(define-condition sip-parse-error (error)
+  ((text :initarg :text :reader text))
+  (:report (lambda (condition stream)
+             (format stream "SIP Parse Error: ~a" (text condition)))))
 
-(defun parse-response (str)
-  (multiple-value-bind (msg-lines body) (split-msg str)
-    (when msg-lines
-      (let ((status-vals (parse-status-line (first msg-lines)))
-            (headers (parse-headers (cdr msg-lines))))
-        (make-instance 'response
-                       :status-code (second status-vals)
-                       :version (first status-vals)
-                       :headers headers
-                       :bodies  (parse-bodies body))))))
+(defmacro sip-parse-error (fmt-str &rest args)
+  `(error 'sip-parse-error :text (funcall #'format nil ,fmt-str ,@args)))
+
+(defun can-parse-p (fn &rest args)
+  "If (fn ..args..) does not throw a sip-parse-error, give (values t (fn ..args..)),
+otherwise (values nil <sip-parse-error>)"
+  (handler-case (apply fn args)
+    (sip-parse-error (e) (values nil e))
+    (:no-error (&rest args) (values t args))))
+
+(defun parse-msg (str)
+  "Parse the str into the proper msg class"
+  (destructuring-bind (msg-lines body) (split-msg str)
+    (unless (and msg-lines body)
+      (sip-parse-error "Invalid msg -- no blank line included!"))
+    (multiple-value-bind (req req-v) (can-parse-p #'parse-uri-line (first msg-lines))
+      (cond (req (parse-request msg-lines body))
+            (t
+             (multiple-value-bind (resp resp-v) (can-parse-p #'parse-status-line (first msg-lines))
+               (cond (resp (parse-response msg-lines body))
+                     ((and req-v resp-v)
+                      (sip-parse-error "Cannot determine if msg is Request or Response"))
+                     (req-v (sip-parse-error (text req-v)))
+                     (resp-v (sip-parse-error (text resp-v))))))))))
+
+(defun parse-request (msg-lines body)
+  (let ((uri-vals (parse-uri-line (first msg-lines)))
+        (headers (parse-headers (cdr msg-lines))))
+    (make-instance 'request
+                   :method  (first uri-vals)
+                   :uri     (second uri-vals)
+                   :version (third uri-vals)
+                   :headers headers
+                   :bodies  (parse-bodies body))))
+
+(defun parse-response (msg-lines body)
+  (let ((status-vals (parse-status-line (first msg-lines)))
+        (headers (parse-headers (cdr msg-lines))))
+    (make-instance 'response
+                   :status-code (second status-vals)
+                   :version (first status-vals)
+                   :headers headers
+                   :bodies  (parse-bodies body))))
 
 (defun split-msg (str)
-  "Return values: all msg data above the bodies split by CRLF, body section"
+  "Return list: (all msg data above the bodies split by CRLF, body section"
   (let ((fields (cl-ppcre:split (format nil "~a~a" +crlf+ +crlf+) str)))
     (if fields
-        (values (cl-ppcre:split +crlf+ (first fields)) (second fields))
+        (list (cl-ppcre:split +crlf+ (first fields)) (second fields))
         nil)))
 
 (defun parse-uri-line (line)
   "Parse the uri line from string; return (method uri version)"
+  
   (let ((fields (cl-ppcre:split " +" line)))
     (if (= (length fields) 3)
       (list (parse-method (first fields))
             (parse-uri (second fields))
             (parse-version (third fields)))
-      (error "Invalid SIP-URI line: ~a " line))))
+      (sip-parse-error "Invalid SIP-URI line: ~a " line))))
 
 (defun parse-status-line (line)
   "Parse first line of response msg: return '(version code reason-phrase)"
@@ -225,18 +252,18 @@
         (list (parse-version (aref fields 0))
               (parse-response-code (aref fields 1))
               (aref fields 2))
-        (error "Invalid Status-Line: ~a" line))))
+        (sip-parse-error "Invalid Status-Line: ~a" line))))
 
 (defun parse-response-code (str)
   (aif (parse-integer str :junk-allowed t)
        (if (is-status-code cl-sip.util:it)
            cl-sip.util:it
-           (error "Invalid Status-Code: ~a" str))
-       (error "Invalid Status-Code: ~a" str)))
+           (sip-parse-error "Invalid Status-Code: ~a" str))
+       (sip-parse-error "Invalid Status-Code: ~a" str)))
 
 (defun parse-method (m)
   (let ((msym (is-method-name m)))
-    (if msym msym (error "Invalid method: ~a" m))))
+    (if msym msym (sip-parse-error "Invalid method: ~a" m))))
 
 (defclass sip-uri ()
   ((user-info :initarg :user-info
@@ -270,7 +297,7 @@
          (when (> len 2) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 2))))
          (when (> len 4) (parse-uri-headers uri (aref matches 4)))
          uri))
-      (t (error "Invalid SIP-URI: ~a" str)))))
+      (t (sip-parse-error "Invalid SIP-URI: ~a" str)))))
 
 (defun parse-extended-uri (sip-uri str)
   (let ((fields (split "\\?" str)))
@@ -307,7 +334,7 @@
 (defun parse-version (v)
   (if (scan "SIP/\\d\\.\\d" v)
       v
-      (error "Invalid SIP-Version: ~a" v)))
+      (sip-parse-error "Invalid SIP-Version: ~a" v)))
 
 (defun parse-bodies (str) str)
 
@@ -319,11 +346,11 @@
        (let ((hdr (is-header-name (trim-ws (first fields)))))
          (if hdr
              (cons hdr (trim-ws (second fields)))
-             nil)))
+             (sip-parse-error "Invalid header: ~a" (first fields)))))
       (t nil))))
 
 (defun parse-headers (lines)
-  "Return alist of header/header-value pairs; ignore unknown headers.
+  "Return alist of header/header-value pairs.
 
 This function works by successive filterings of lists. In the parse-line pass, the raw
 header lines are transformed into an alist of hdr/value pairs. If the header line is a
