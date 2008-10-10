@@ -6,7 +6,8 @@
            :aif
            :awhen
            :symbol-name-alist
-           :trim-ws))
+           :trim-ws
+           :join-str))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp

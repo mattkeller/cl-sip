@@ -26,3 +26,6 @@
 (defun trim-ws (str)
   (let ((ws '(#\Space #\Tab)))
     (string-left-trim ws (string-right-trim ws str))))
+
+(defun join-str (separator-str a b)
+  (concatenate 'string a separator-str b))

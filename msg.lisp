@@ -345,7 +345,7 @@ comma separating their values."
                     (let* ((hdr-cons (first (last alist)))
                            (hdr (car hdr-cons))
                            (oldval (cdr hdr-cons)))
-                      (append (butlast alist) (list (cons hdr (concatenate 'string oldval " " (cdr y)))))))
+                      (append (butlast alist) (list (cons hdr (join-str " " oldval (cdr y)))))))
                    (t (append alist (list y)))))
            (combino (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"
@@ -353,7 +353,7 @@ comma separating their values."
                    ((assoc (caar lst) acc)
                     (let ((hdr (assoc (caar lst) acc))
                           (newvalue (cdr (car lst))))
-                      (rplacd hdr (concatenate 'string (cdr hdr) "," newvalue))
+                      (rplacd hdr (join-str "," (cdr hdr) newvalue))
                       (combino (cdr lst) acc)))
                    (t (combino (cdr lst) (cons (car lst) acc))))))
     (combino (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
