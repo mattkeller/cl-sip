@@ -162,6 +162,15 @@
   (print-unreadable-object (m stream :identity t :type t)
     (print-object-fields m stream)))
 
+(defmethod emit ((m msg))
+  (concatenate
+   'string
+   (format nil "~{~a~}"
+           (mapcar #'(lambda (c)
+                       (concatenate 'string (string (car c)) ": " (cdr c) +crlf+))
+                   (headers m)))
+   +crlf+))
+
 ;; TODO: only return first header of type 'header'
 (defmethod has-header ((m msg) header)
   (assoc header (headers m)))
@@ -176,12 +185,58 @@
                 :initform (error "Need a status-code")
                 :reader status-code)))
 
+(defmethod emit ((m response))
+  (with-accessors ((v version) (h headers) (s status-code) (b body)) m
+    (concatenate 'string
+                 (format nil "~a ~a ~a~a" v s (status-code-str s) +crlf+)
+                 (call-next-method))))
+
 (defclass request (msg)
   ((method  :initarg :method
             :initform (error "Need a method")
-            :reader meth)
+            :accessor meth)
    (uri     :initarg :uri
-            :reader uri)))
+            :accessor uri)))
+
+(defmethod emit ((m request))
+  (with-accessors ((m meth) (u uri) (v version)) m
+    (concatenate 'string
+                 (format nil "~a ~a ~a~a" m (emit u) v +crlf+)
+                 (call-next-method))))
+
+(defclass sip-uri ()
+  ((user-info :initarg :user-info
+              :initform nil
+              :accessor user-info)
+   (hostport  :initarg :hostport
+              :initform nil
+              :accessor hostport)
+   (uri-parms :initarg :uri-parms
+              :initform nil
+              :accessor uri-parms)
+   (headers   :initarg :headers
+              :initform nil
+              :accessor headers)))
+
+(defmethod print-object ((obj sip-uri) stream)
+  (print-unreadable-object (obj stream :identity t :type t)
+    (format stream "User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
+            (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
+
+(defun alist-to-str-pairs (alist &optional (s1 "") (s2 "=")  (s3 nil))
+  "Turn alist of name/value pairs into a string with various separators"
+  (if alist
+    (format nil (concatenate 'string "~{~a" (if s3 (concatenate 'string "~^" s3) "") "~}")
+            (mapcar #'(lambda (p) (concatenate 'string s1 (car p) s2 (cdr p))) alist))
+    ""))
+
+(defmethod emit ((obj sip-uri))
+  (with-accessors ((ui user-info) (hp hostport) (parms uri-parms)(hdrs headers)) obj
+      (format nil "sip:~a~a~a~a"
+              (if ui (concatenate 'string ui "@") "")
+              hp
+              (if parms (alist-to-str-pairs parms ";" "=") "")
+              (if hdrs  (concatenate 'string "?" (alist-to-str-pairs hdrs "" "=" "&")) ""))))
 
 ;;; Parsing ------------------------------------------------------------
 
@@ -271,25 +326,6 @@ otherwise (values nil <sip-parse-error>)"
 (defun parse-method (m)
   (let ((msym (is-method-name m)))
     (if msym msym (sip-parse-error "Invalid method: ~a" m))))
-
-(defclass sip-uri ()
-  ((user-info :initarg :user-info
-              :initform nil
-              :accessor user-info)
-   (hostport  :initarg :hostport
-              :initform nil
-              :accessor hostport)
-   (uri-parms :initarg :uri-parms
-              :initform nil
-              :accessor uri-parms)
-   (headers   :initarg :headers
-              :initform nil
-              :accessor headers)))
-
-(defmethod print-object ((obj sip-uri) stream)
-  (print-unreadable-object (obj stream :identity t :type t)
-    (format stream "User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
-            (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
 
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
