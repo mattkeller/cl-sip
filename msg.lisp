@@ -136,7 +136,16 @@
 (defun status-code-str (r)
   (cdr (assoc r +status-codes+)))
 
-;;; Message classes ----------------------------------------------------
+(defun status-code-type (code)
+  (cond ((and (>= code 100) (< code 200)) 'provisional)
+        ((and (>= code 200) (< code 300)) 'success)
+        ((and (>= code 300) (< code 400)) 'redirection)
+        ((and (>= code 400) (< code 500)) 'client-error)
+        ((and (>= code 500) (< code 500)) 'server-error)
+        ((and (>= code 600) (< code 700)) 'global-failure)
+        (t nil)))
+
+;;; Msg class ----------------------------------------------------
 
 (defclass msg ()
   ((version :initarg :version
@@ -180,6 +189,8 @@
   (setf (headers m) (acons header-symbol header-string (headers m)))
   m)
 
+;;; Response class ----------------------------------------------------
+
 (defclass response (msg)
   ((status-code :initarg :status-code
                 :initform (error "Need a status-code")
@@ -190,6 +201,8 @@
     (concatenate 'string
                  (format nil "~a ~a ~a~a" v s (status-code-str s) +crlf+)
                  (call-next-method))))
+
+;;; Request class ------------------------------------------------------
 
 (defclass request (msg)
   ((method  :initarg :method
@@ -203,6 +216,8 @@
     (concatenate 'string
                  (format nil "~a ~a ~a~a" m (emit u) v +crlf+)
                  (call-next-method))))
+
+;;; Sip-uri class ------------------------------------------------------
 
 (defclass sip-uri ()
   ((user-info :initarg :user-info
