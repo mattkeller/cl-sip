@@ -316,7 +316,7 @@
   (let ((fields (split ":" str)))
     (cond
       ((and (eql (length fields) 2))
-       (let ((hdr (is-header-name (first fields))))
+       (let ((hdr (is-header-name (trim-ws (first fields)))))
          (if hdr
              (cons hdr (trim-ws (second fields)))
              nil)))
