@@ -8,6 +8,7 @@
 ; * print-object for msg
 ; * parsing of specific headers
 ; * msg construction & "toString"
+; * parse-headers does not catch a multline continuation as the first header line
 
 (in-package :cl-sip.msg)
 
@@ -369,10 +370,8 @@ comma separating their values."
              (cond ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
                     (multiline-hdr-join (list alist) y))
                    ((eq (car y) 'continuation)
-                    (let* ((hdr-cons (first (last alist)))
-                           (hdr (car hdr-cons))
-                           (oldval (cdr hdr-cons)))
-                      (append (butlast alist) (list (cons hdr (join-str " " oldval (cdr y)))))))
+                    (let* ((hdr-cons (first (last alist))))
+                      (append (butlast alist) (list (cons (car hdr-cons) (join-str " " (cdr hdr-cons) (cdr y)))))))
                    (t (append alist (list y)))))
            (combino (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"
@@ -383,7 +382,9 @@ comma separating their values."
                       (rplacd hdr (join-str "," (cdr hdr) newvalue))
                       (combino (cdr lst) acc)))
                    (t (combino (cdr lst) (cons (car lst) acc))))))
-    (combino (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
+    (combino
+     (remove-if #'(lambda (x) (eq (car x) 'continuation)) ;; TODO: error if there is a 'continuation still
+                (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines)))))))
 
 
 ;;; Testing utils ------------------------------------------------------
