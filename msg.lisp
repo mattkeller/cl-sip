@@ -3,8 +3,6 @@
 ; TODO
 ; * review rfc for parsing details
 ; * handle sips uris?
-; * generic parse-msg fn
-; * print-object for msg
 ; * parsing of specific headers
 ; * msg construction & "toString"
 ; * parse-headers does not catch a multline continuation as the first header line
@@ -151,10 +149,18 @@
             :initform nil
             :reader bodies)))
 
+(defun print-object-fields (obj stream)
+  "Print all the fields of an object autoMOPically"
+  (let ((class (class-of obj))
+        (fmt   (if *print-pretty* "~&~S=~S" "~S=~S ")))
+    (dolist (slot (sb-mop:class-slots class))
+      (format stream fmt
+              (sb-mop:slot-definition-name slot)
+              (sb-mop:slot-value-using-class class obj slot)))))
+
 (defmethod print-object ((m msg) stream)
   (print-unreadable-object (m stream :identity t :type t)
-    (format stream "Version: ~a~% Headers: ~{~a~}~%"
-            (version m) (headers m))))
+    (print-object-fields m stream)))
 
 ;; TODO: only return first header of type 'header'
 (defmethod has-header ((m msg) header)
@@ -170,22 +176,12 @@
                 :initform (error "Need a status-code")
                 :reader status-code)))
 
-(defmethod print-object ((r response) stream)
-  (print-unreadable-object (r stream :identity t :type t)
-    (format stream "Status-code: ~a~% Version: ~a~% Headers: ~{~a~}~%"
-            (status-code r) (version r) (headers r))))
-
 (defclass request (msg)
   ((method  :initarg :method
             :initform (error "Need a method")
             :reader meth)
    (uri     :initarg :uri
             :reader uri)))
-
-(defmethod print-object ((r request) stream)
-  (print-unreadable-object (r stream :identity t :type t)
-    (format stream "Method: ~a~% Uri: ~a~% Version: ~a~% Headers: ~{~a~}~%"
-            (meth r) (uri r) (version r) (headers r))))
 
 ;;; Parsing ------------------------------------------------------------
 
@@ -247,7 +243,7 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-uri-line (line)
   "Parse the uri line from string; return (method uri version)"
-  
+
   (let ((fields (cl-ppcre:split " +" line)))
     (if (= (length fields) 3)
       (list (parse-method (first fields))
