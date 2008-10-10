@@ -3,7 +3,6 @@
 ; TODO
 ; * defconstant is a pain!
 ; * review rfc for parsing details
-; * handle multi headers w/ same name (comma-sep lists)
 ; * handle sips uris?
 ; * generic parse-msg fn
 ; * print-object for msg
@@ -324,24 +323,39 @@
       (t nil))))
 
 (defun parse-headers (lines)
-  "Parser header section, return alist of header/header-value pairs; ignore unknown headers"
+  "Return alist of header/header-value pairs; ignore unknown headers.
+
+This function works by successive filterings of lists. In the parse-line pass, the raw
+header lines are transformed into an alist of hdr/value pairs. If the header line is a
+multiline continuation (starts with whitespace), its hdr symbol becomes 'continuation. In
+the multiline-hdr-join pass, the continutations are squashed into their preceeding alist
+pairs. In the combino pass, pairs with the same car (same header) are combined with a
+comma separating their values."
   (labels ((parse-line (line)
-             "Parse line to either nil, an string, or a '(hdr-symbol . hdr-value) cons"
+             "Parse line to either nil or '(hdr-symbol . hdr-value) cons"
              (cond
                ((string= line "") nil)
-               ((scan "^[\\s+]" line) (trim-ws line))
+               ((scan "^[\\s+]" line) (cons 'continuation (trim-ws line)))
                (t (parse-header-line line))))
            (multiline-hdr-join (alist y)
-             "If a string follows a cons in alist, squash the string onto the cdr of the cons"
+             "Squash together cdrs when 2nd cons has car of 'continuation"
              (cond ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
                     (multiline-hdr-join (list alist) y))
-                   ((consp y) ; alist is an alist, y is a cons
-                    (list alist y))
-                   (t ; alist is a cons, y is an atom
+                   ((eq (car y) 'continuation)
                     (let* ((hdr-cons (first (last alist)))
                            (hdr (car hdr-cons))
                            (oldval (cdr hdr-cons)))
-                      (acons hdr (concatenate 'string oldval " " y) (butlast alist)))))))
-    (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines)))))
+                      (append (butlast alist) (list (cons hdr (concatenate 'string oldval " " (cdr y)))))))
+                   (t (append alist (list y)))))
+           (combino (lst &optional (acc nil))
+             "Combine alist entries with eq cars to have cdrs separated by commas"
+             (cond ((null lst) acc)
+                   ((assoc (caar lst) acc)
+                    (let ((hdr (assoc (caar lst) acc))
+                          (newvalue (cdr (car lst))))
+                      (rplacd hdr (concatenate 'string (cdr hdr) "," newvalue))
+                      (combino (cdr lst) acc)))
+                   (t (combino (cdr lst) (cons (car lst) acc))))))
+    (combino (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
 
 
