@@ -2,7 +2,6 @@
 
 ; TODO
 ; * parsing of specific headers
-; * parse-headers does not catch a multline continuation as the first header line (well)
 ; * put recommended important fields at top: via, to, from, etc
 ; * disallow combining multiple fields for  WWW-Authenticate, Authorization, Proxy-Authenticate, and Proxy-Authorization
 ; * disallow duplicate parmaters on a single header
@@ -439,15 +438,16 @@ comma separating their values."
                ((string= line "") nil)
                ((scan "^[\\s+]" line) (cons 'continuation (trim-ws line)))
                (t (parse-header-line line))))
-           (multiline-hdr-join (&optional (alist nil) (y nil))
+           (multiline-hdr-join (alist)
              "Squash together cdrs when 2nd cons has car of 'continuation"
-             (cond ((null y) nil)
-                   ((atom (car alist)) ; alist is a bare cons, make it a alist and try again
-                    (multiline-hdr-join (list alist) y))
-                   ((eq (car y) 'continuation)
-                    (let* ((hdr-cons (first (last alist))))
-                      (append (butlast alist) (list (cons (car hdr-cons) (join-str " " (cdr hdr-cons) (cdr y)))))))
-                   (t (append alist (list y)))))
+             (let (new-list last-pair)
+               (dolist (a alist)
+                 (cond ((eq (car a) 'continuation)
+                        (when last-pair
+                          (rplacd last-pair (concatenate 'string (cdr last-pair) " " (trim-ws (cdr a))))))
+                       (t (setf new-list (append new-list (list a)))
+                          (setf last-pair a))))
+               new-list))
            (combino (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"
              (cond ((null lst) acc)
@@ -457,9 +457,7 @@ comma separating their values."
                       (rplacd hdr (join-str "," (cdr hdr) newvalue))
                       (combino (cdr lst) acc)))
                    (t (combino (cdr lst) (cons (car lst) acc))))))
-    (combino
-     (remove-if #'(lambda (x) (eq (car x) 'continuation)) ;; TODO: error if there is a 'continuation still
-                (reduce #'multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines)))))))
+    (combino (multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
 
 
 ;;; Testing utils ------------------------------------------------------
@@ -471,3 +469,15 @@ comma separating their values."
                +crlf+
                +crlf+
                "...fake-body..."))
+
+(defun test-parse-headers ()
+  (flet ((header-is (h val alist)
+           (let ((real-val (cdr (assoc h alist)))) 
+             (cond
+               ((string-equal real-val val) t)
+               (t (format t "Value of header ~a should be ~a, was ~a" h val real-val) nil)))))
+    (header-is 'to "matt" (parse-headers '("to: matt" "from: bob")))
+    (header-is 'from "bob" (parse-headers '("to: matt" "from: bob  ")))
+    (header-is 'to "matt keller" (parse-headers '("to: matt" " keller" "from: bob")))
+    (header-is 'from "bob,foop" (parse-headers '("to: matt" "from: bob" "from: foop ")))
+    (assert (null (assoc 'continuation (parse-headers '(" yikes" "to: matt" "from: bob" "from: foop ")))))))
