@@ -3,7 +3,6 @@
 ; TODO
 ; * parsing of specific headers
 ; * put recommended important fields at top: via, to, from, etc
-; * disallow combining multiple fields for  WWW-Authenticate, Authorization, Proxy-Authenticate, and Proxy-Authorization
 ; * disallow duplicate parmaters on a single header
 ; * ignore disallowed headers based on msg type
 
@@ -85,6 +84,13 @@
     (when (member name (cdr h) :test #'string-equal) ; must be case insensitive
       (return-from is-header-name (first h))))
   nil)
+
+(defparameter +non-folding-headers+
+  '(WWW-Authenticate Authorization Proxy-Authenticate Proxy-Authorization)
+  "Do not combine multiple headers of these sort into single headers")
+
+(defun non-folding-header (h)
+  (member h +non-folding-headers+))
 
 (defparameter +status-codes+ '((100 . "Trying")
                                (180 . "Ringing")
@@ -440,7 +446,7 @@ comma separating their values."
                ((string= line "") nil)
                ((scan "^[\\s+]" line) (cons 'continuation (trim-ws line)))
                (t (parse-header-line line))))
-           (multiline-hdr-join (alist)
+           (multiline-hdr-join (alist) ; TODO: can I do this functionally?
              "Squash together cdrs when 2nd cons has car of 'continuation"
              (let (new-list last-pair)
                (dolist (a alist)
@@ -453,7 +459,8 @@ comma separating their values."
            (combino (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"
              (cond ((null lst) acc)
-                   ((assoc (caar lst) acc)
+                   ((and (assoc (caar lst) acc)
+                         (not (non-folding-header (caar lst))))
                     (let ((hdr (assoc (caar lst) acc))
                           (newvalue (cdr (car lst))))
                       (rplacd hdr (join-str "," (cdr hdr) newvalue))
