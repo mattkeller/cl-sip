@@ -7,7 +7,8 @@
            :awhen
            :symbol-name-alist
            :trim-ws
-           :join-str))
+           :join-str
+           :make-keyword))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp
@@ -24,4 +25,3 @@
   (:export :make-client
            :call
            :answer))
-           

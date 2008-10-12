@@ -30,3 +30,10 @@
 (defun join-str (separator-str a b)
   (concatenate 'string a separator-str b))
 
+(defun make-keyword (name)
+  "Make a keyword with given name. Attempts to respect the current readtable case."
+  (intern (case (readtable-case *readtable*)
+            (:upcase (string-upcase name))
+            (:downcase (string-downcase name))
+            (t name))
+          :keyword))

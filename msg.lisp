@@ -12,7 +12,8 @@
 
 (defparameter +crlf+ (format nil "~a~a" #\Return #\Linefeed))
 
-(defparameter +methods+ (symbol-name-alist '(invite ack options bye cancel register options info)))
+(defparameter +methods+
+  (symbol-name-alist '(:invite :ack :options :bye :cancel :register :options :info)))
 
 (defun is-method (m)
   (if (assoc m +methods+) t nil))
@@ -26,51 +27,51 @@
   (mapcar #'(lambda (s)
               (cond ((atom s) (list s (symbol-name s)))
                     ((consp s) (list (car s) (symbol-name (car s)) (symbol-name (cdr s))))))
-          '(accept
-            accept-encoding
-            accept-language
-            alert-info
-            allow
-            authentication-info
-            authorization
-            call-id
-            call-info
-            (contact . m)
-            content-disposition
-            (content-encoding . e)
-            content-language
-            (content-length . l)
-            (content-type . c)
-            cseq
-            date
-            error-info
-            expires
-            extension-header
-            (from . f)
-            in-reply-to
-            max-forwards
-            mime-version
-            min-expires
-            organization
-            priority
-            proxy-authenticate
-            proxy-authorization
-            proxy-require
-            record-route
-            reply-to
-            require
-            retry-after
-            route
-            server
-            (subject . s)
-            (supported . k)
-            timestamp
-            (to . t)
-            unsupported
-            user-agent
-            (via . v)
-            warning
-            www-authenticate))
+          '(:accept
+            :accept-encoding
+            :accept-language
+            :alert-info
+            :allow
+            :authentication-info
+            :authorization
+            :call-id
+            :call-info
+            (:contact . :m)
+            :content-disposition
+            (:content-encoding . :e)
+            :content-language
+            (:content-length . :l)
+            (:content-type . :c)
+            :cseq
+            :date
+            :error-info
+            :expires
+            :extension-header
+            (:from . :f)
+            :in-reply-to
+            :max-forwards
+            :mime-version
+            :min-expires
+            :organization
+            :priority
+            :proxy-authenticate
+            :proxy-authorization
+            :proxy-require
+            :record-route
+            :reply-to
+            :require
+            :retry-after
+            :route
+            :server
+            (:subject . :s)
+            (:supported . :k)
+            :timestamp
+            (:to . :t)
+            :unsupported
+            :user-agent
+            (:via . :v)
+            :warning
+            :www-authenticate))
   "List of '(<header-symbol> <header-name>...)")
 
 (defun is-header (sym)
@@ -83,10 +84,10 @@
  (dolist (h +headers+)
     (when (member name (cdr h) :test #'string-equal) ; must be case insensitive
       (return-from is-header-name (first h))))
-  nil)
+ (if (scan "^x-" name) (make-keyword name) nil))
 
 (defparameter +non-folding-headers+
-  '(WWW-Authenticate Authorization Proxy-Authenticate Proxy-Authorization)
+  '(:www-authenticate :authorization :proxy-authenticate :proxy-authorization)
   "Do not combine multiple headers of these sort into single headers")
 
 (defun non-folding-header (h)
@@ -485,8 +486,8 @@ comma separating their values."
              (cond
                ((string-equal real-val val) t)
                (t (format t "Value of header ~a should be ~a, was ~a" h val real-val) nil)))))
-    (header-is 'to "matt" (parse-headers '("to: matt" "from: bob")))
-    (header-is 'from "bob" (parse-headers '("to: matt" "from: bob  ")))
-    (header-is 'to "matt keller" (parse-headers '("to: matt" " keller" "from: bob")))
-    (header-is 'from "bob,foop" (parse-headers '("to: matt" "from: bob" "from: foop ")))
+    (header-is :to "matt" (parse-headers '("to: matt" "from: bob")))
+    (header-is :from "bob" (parse-headers '("to: matt" "from: bob  ")))
+    (header-is :to "matt keller" (parse-headers '("to: matt" " keller" "from: bob")))
+    (header-is :from "bob,foop" (parse-headers '("to: matt" "from: bob" "from: foop ")))
     (assert (null (assoc 'continuation (parse-headers '(" yikes" "to: matt" "from: bob" "from: foop ")))))))
