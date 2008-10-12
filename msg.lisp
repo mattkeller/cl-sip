@@ -241,9 +241,15 @@
    (user-info :initarg :user-info
               :initform nil
               :accessor user-info)
-   (hostport  :initarg :hostport
+   (host      :initarg :host
               :initform nil
-              :accessor hostport)
+              :accessor host)
+   (ip        :initarg :ip
+              :initform nil
+              :accessor ip)
+   (port      :initarg :port
+              :initform nil
+              :accessor port)
    (uri-parms :initarg :uri-parms
               :initform nil
               :accessor uri-parms)
@@ -253,8 +259,8 @@
 
 (defmethod print-object ((obj sip-uri) stream)
   (print-unreadable-object (obj stream :identity t :type t)
-    (format stream "Scheme: ~a; User-info: ~a; Hostport: ~a; Parms: ~a; Headers: ~a"
-            (scheme obj) (user-info obj) (hostport obj) (uri-parms obj) (headers obj))))
+    (format stream "Scheme: ~a; User-info: ~a; Host: ~a; IP: ~a; Port: ~a; Parms: ~a; Headers: ~a"
+            (scheme obj) (user-info obj) (host obj) (ip obj) (port obj) (uri-parms obj) (headers obj))))
 
 (defun alist-to-str-pairs (alist &optional (s1 "") (s2 "=")  (s3 nil))
   "Turn alist of name/value pairs into a string with various separators"
@@ -264,10 +270,10 @@
     ""))
 
 (defmethod emit ((obj sip-uri))
-  (with-accessors ((ui user-info) (hp hostport) (parms uri-parms)(hdrs headers)) obj
+  (with-accessors ((ui user-info) (h host) (p port) (ip ip) (parms uri-parms) (hdrs headers)) obj
       (format nil "sip:~a~a~a~a"
               (if ui (concatenate 'string ui "@") "")
-              hp
+              (concatenate 'string (if h h ip) (if p (format nil ":~a" p) ""))
               (if parms (alist-to-str-pairs parms ";" "=") "")
               (if hdrs  (concatenate 'string "?" (alist-to-str-pairs hdrs "" "=" "&")) ""))))
 
@@ -333,7 +339,6 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-uri-line (line)
   "Parse the uri line from string; return (method uri version)"
-
   (let ((fields (cl-ppcre:split " +" line)))
     (if (= (length fields) 3)
       (list (parse-method (first fields))
@@ -367,6 +372,22 @@ otherwise (values nil <sip-parse-error>)"
         ((string-equal str "sips") 'sips)
         (t (sip-parse-error "Invalid uri scheme: ~a" str))))
 
+(defun parse-hostport (str)
+  "Give (<hostname> <ip> <port>) from str"
+  (let ((fields (split ":" str))
+        (port nil)
+        (hostname nil)
+        (ip nil))
+    (when (= (length fields) 2)
+      (setf port (parse-integer (second fields) :junk-allowed t)))
+    ;; host must be valid domain name or ipv4 -- skip ipv6 for now
+    (cond ((scan "(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})" (first fields))
+           (setf ip (first fields)))
+          ((scan "([\\w-]+\\.)*([a-zA-Z]+)" (first fields)) ;; TODO: close, but not quite
+           (setf hostname (first fields)))
+          (t (sip-parse-error "Invalid hostport: ~a" str)))
+    (list hostname ip port)))
+
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
   (multiple-value-bind (whole-match matches) (scan-to-strings "(sips?):(.*@)([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
@@ -377,7 +398,12 @@ otherwise (values nil <sip-parse-error>)"
              (len (length matches)))
          (when (> len 0) (setf (scheme uri) (parse-uri-scheme (aref matches 0))))
          (when (> len 1) (setf (user-info uri) (string-right-trim '(#\@) (aref matches 1))))
-         (when (> len 2) (setf (hostport uri) (aref matches 2)))
+         (when (> len 2)
+           (let ((hostport (parse-hostport (aref matches 2))))
+             (when hostport
+               (setf (host uri) (first hostport))
+               (setf (ip uri)   (second hostport))
+               (setf (port uri) (third hostport)))))
          (when (> len 3) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 3))))
          (when (> len 5) (parse-uri-headers uri (aref matches 5)))
          uri))
