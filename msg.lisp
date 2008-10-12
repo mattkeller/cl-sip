@@ -5,6 +5,7 @@
 ; * put recommended important fields at top: via, to, from, etc
 ; * disallow duplicate parmaters on a single header
 ; * ignore disallowed headers based on msg type
+; * handle stream-oriented msgs: must have content-length; must ignore leading crlfs
 
 (in-package :cl-sip.msg)
 
@@ -429,7 +430,7 @@ otherwise (values nil <sip-parse-error>)"
        (let ((hdr (is-header-name (trim-ws (first fields)))))
          (if hdr
              (cons hdr (trim-ws (second fields)))
-             (sip-parse-error "Invalid header: ~a" (first fields)))))
+             (warn "Ignoring unknown header: ~a" (first fields)))))
       (t nil))))
 
 (defun parse-headers (lines)
