@@ -16,5 +16,5 @@
                (:file "util")
                (:file "msg" :depends-on ("util"))
                (:file "client" :depends-on ("msg")))
-  :depends-on (:cl-ppcre))
+  :depends-on (:cl-ppcre :stefil))
 

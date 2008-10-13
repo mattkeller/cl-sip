@@ -13,7 +13,8 @@
 (defpackage :cl-sip.msg
   (:use :common-lisp
         :cl-ppcre
-        :cl-sip.util)
+        :cl-sip.util
+        :stefil)
   (:export :call-method-args
            :responses
            :headers))

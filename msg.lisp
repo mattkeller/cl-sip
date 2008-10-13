@@ -509,16 +509,31 @@ header) are combined with a comma separating their values."
                +crlf+
                "...fake-body..."))
 
-(defun test-parse-headers ()
+(defsuite msg-suite)
+
+(in-suite msg-suite)
+
+(deftest test-parse-headers ()
   (flet ((header-is (h val alist)
-           (let ((real-val (cdr (assoc h alist)))) 
-             (cond
-               ((string-equal real-val val) t)
-               (t (format t "Value of header ~a should be ~a, was ~a" h val real-val) nil)))))
+           (let ((real-val (cdr (assoc h alist))))
+             (is (string-equal real-val val) "Value of header ~a should be ~a, was ~a" h val real-val))))
     (header-is :to "matt" (parse-headers '("to: matt" "from: bob")))
-    (header-is :from "bob" (parse-headers '("to: matt" "from: bob  ")))
+    (header-is :from "bob" (parse-headers '("t: matt" "f: bob  ")))
     (header-is :to "matt keller" (parse-headers '("to: matt" " keller" "from: bob")))
     (header-is :from "bob,foop" (parse-headers '("to: matt" "from: bob" "from: foop ")))
-    (handler-case (parse-headers '(" yikes" "to: matt" "from: bob" "from: foop "))
-      (sip-parse-error () t)
-      (:no-error () (error "Should have thrown a sip parse error")))))
+    (is (can-parse-p #'parse-headers '("tooo: matt"))) ; ignore unknown header
+    (header-is :x-header "foop" (parse-headers '("to: matt" "x-header: foop")))))
+
+(deftest test-req-parse ()
+  (let ((req (parse-msg (build-msg-str '("INVITE sip:matthewk@nortel.com:5060 SIP/2.0"
+                                         "t: matthewk"
+                                         "f: bob")))))
+    (is (string= (meth req) "INVITE"))
+    (is (string= (version req) "SIP/2.0"))
+    (is (string= (host (uri req)) "nortel.com"))
+    (is (string= (ip (uri req)) nil))
+    (is (string= (user-info (uri req)) "matthewk"))
+    (is (= (port (uri req)) 5060))
+    (is (string= (cdr (has-header req :to)) "matthewk"))
+    (is (string= (cdr (has-header req :from)) "bob"))))
+
