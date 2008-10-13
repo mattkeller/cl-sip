@@ -462,29 +462,29 @@ otherwise (values nil <sip-parse-error>)"
 (defun parse-headers (lines)
   "Return alist of header/header-value pairs.
 
-This function works by successive filterings of lists. In the parse-line pass, the raw
-header lines are transformed into an alist of hdr/value pairs. If the header line is a
-multiline continuation (starts with whitespace), its hdr symbol becomes 'continuation. In
-the multiline-hdr-join pass, the continutations are squashed into their preceeding alist
-pairs. In the combino pass, pairs with the same car (same header) are combined with a
-comma separating their values."
+This function works by successive filterings of lists. In the parse-line
+pass, the raw header lines are transformed into an alist of hdr/value
+pairs. If the header line is a continuation (starts with whitespace),
+its hdr symbol becomes 'continuation. In the hdr-continuation-reduction
+pass, the continutations are squashed into their preceeding alist
+pairs. In the multi-hdr-combination pass, pairs with the same car (same
+header) are combined with a comma separating their values."
   (labels ((parse-line (line)
              "Parse line to either nil or '(hdr-symbol . hdr-value) cons"
              (cond
                ((string= line "") nil)
                ((scan "^[\\s+]" line) (cons 'continuation (trim-ws line)))
                (t (parse-header-line line))))
-           (multiline-hdr-join (alist) ; TODO: can I do this functionally?
+           (hdr-continuation-reduction (alist c)
              "Squash together cdrs when 2nd cons has car of 'continuation"
-             (let (new-list last-pair)
-               (dolist (a alist)
-                 (cond ((eq (car a) 'continuation)
-                        (when last-pair
-                          (rplacd last-pair (concatenate 'string (cdr last-pair) " " (trim-ws (cdr a))))))
-                       (t (setf new-list (append new-list (list a)))
-                          (setf last-pair a))))
-               new-list))
-           (combino (lst &optional (acc nil))
+             (cond ((eq (car c) 'continuation)
+                    (let ((prev-pair (first (last alist))))
+                      (if prev-pair
+                          (rplacd prev-pair (concatenate 'string (cdr prev-pair) " " (cdr c)))
+                          (sip-parse-error "Invalid header: ~a" (car c)))
+                      alist))
+                   (t (append alist (list c)))))
+           (multi-hdr-combination (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"
              (cond ((null lst) acc)
                    ((and (assoc (caar lst) acc)
@@ -492,10 +492,12 @@ comma separating their values."
                     (let ((hdr (assoc (caar lst) acc))
                           (newvalue (cdr (car lst))))
                       (rplacd hdr (join-str "," (cdr hdr) newvalue))
-                      (combino (cdr lst) acc)))
-                   (t (combino (cdr lst) (cons (car lst) acc))))))
-    (combino (multiline-hdr-join (remove-if #'null (mapcar #'parse-line lines))))))
-
+                      (multi-hdr-combination (cdr lst) acc)))
+                   (t (multi-hdr-combination(cdr lst) (cons (car lst) acc))))))
+    (multi-hdr-combination
+     (reduce #'hdr-continuation-reduction
+             (remove-if #'null (mapcar #'parse-line lines))
+             :initial-value nil))))
 
 ;;; Testing utils ------------------------------------------------------
 
@@ -517,4 +519,6 @@ comma separating their values."
     (header-is :from "bob" (parse-headers '("to: matt" "from: bob  ")))
     (header-is :to "matt keller" (parse-headers '("to: matt" " keller" "from: bob")))
     (header-is :from "bob,foop" (parse-headers '("to: matt" "from: bob" "from: foop ")))
-    (assert (null (assoc 'continuation (parse-headers '(" yikes" "to: matt" "from: bob" "from: foop ")))))))
+    (handler-case (parse-headers '(" yikes" "to: matt" "from: bob" "from: foop "))
+      (sip-parse-error () t)
+      (:no-error () (error "Should have thrown a sip parse error")))))
