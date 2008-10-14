@@ -554,3 +554,79 @@ header) are combined with a comma separating their values."
   (is (eq 'request (request-or-response-p "INVITE sips:")))
   (is (eq 'request (request-or-response-p "ACK")))
   (is (eq 'request (request-or-response-p "cancel "))))
+
+(defun crlfify (str)
+  (concatenate 'string
+               (reduce #'(lambda (acc str) (concatenate 'string acc str))
+                       (mapcar #'(lambda (l) (concatenate 'string l +crlf+)) (split "\\n" str))
+                       :initial-value "")
+               +crlf+ +crlf+))
+
+(deftest test-example-msgs ()
+  (is (can-parse-p #'parse-msg (crlfify
+"REGISTER sip:registrar.biloxi.com SIP/2.0
+Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7
+Max-Forwards: 70
+To: Bob <sip:bob@biloxi.com>
+From: Bob <sip:bob@biloxi.com>;tag=456248
+Call-ID: 843817637684230@998sdasdh09
+CSeq: 1826 REGISTER
+Contact: <sip:bob@192.0.2.4>
+Expires: 7200
+Content-Length: 0")))
+  (let ((msg (parse-msg (crlfify
+"SIP/2.0 200 OK
+Via: SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7
+ ;received=192.0.2.4
+To: Bob <sip:bob@biloxi.com>;tag=2493k59kd
+From: Bob <sip:bob@biloxi.com>;tag=456248
+Call-ID: 843817637684230@998sdasdh09
+CSeq: 1826 REGISTER
+Contact: <sip:bob@192.0.2.4>
+Expires: 7200
+Content-Length: 0"))))
+    (is (string= (cdr (has-header msg :via))
+                 "SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7 ;received=192.0.2.4")))
+  (is (can-parse-p #'parse-msg (crlfify
+"INVITE sip:bob@biloxi.com SIP/2.0
+Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8
+Max-Forwards: 70
+To: Bob <sip:bob@biloxi.com>
+From: Alice <sip:alice@atlanta.com>;tag=1928301774
+Call-ID: a84b4c76e66710
+CSeq: 314159 INVITE
+Contact: <sip:alice@pc33.atlanta.com>
+Content-Type: application/sdp
+Content-Length: 142")))
+    (is (can-parse-p #'parse-msg (crlfify
+"INVITE sip:bob@biloxi.com SIP/2.0
+Via: SIP/2.0/UDP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c2312983.1
+Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8
+ ;received=192.0.2.1
+Max-Forwards: 69
+To: Bob <sip:bob@biloxi.com>
+From: Alice <sip:alice@atlanta.com>;tag=1928301774
+Call-ID: a84b4c76e66710
+CSeq: 314159 INVITE
+Contact: <sip:alice@pc33.atlanta.com>
+Content-Type: application/sdp
+Content-Length: 142")))
+    (let ((msg (parse-msg (crlfify
+"SIP/2.0 180 Ringing
+Via: SIP/2.0/UDP server10.biloxi.com;branch=z9hG4bK4b43c2ff8.1
+ ;received=192.0.2.3
+Via: SIP/2.0/UDP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c2312983.1
+ ;received=192.0.2.2
+Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8
+ ;received=192.0.2.1
+To: Bob <sip:bob@biloxi.com>;tag=a6c85cf
+From: Alice <sip:alice@atlanta.com>;tag=1928301774
+Call-ID: a84b4c76e66710
+Contact: <sip:bob@192.0.2.4>
+CSeq: 314159 INVITE
+Content-Length: 0"))))
+      (is (string= (cdr (has-header msg :via))
+                   (concatenate 'string
+                                "SIP/2.0/UDP server10.biloxi.com;branch=z9hG4bK4b43c2ff8.1 ;received=192.0.2.3,"
+                                "SIP/2.0/UDP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c2312983.1 ;received=192.0.2.2,"
+                                "SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8 ;received=192.0.2.1")))))
