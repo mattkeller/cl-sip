@@ -348,12 +348,11 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-status-line (line)
   "Parse first line of response msg: return '(version code reason-phrase)"
-  (multiple-value-bind (whole-match fields) (scan-to-strings "([^ ]+)? (\\d{3})? (.+)" line)
-    (declare (ignore whole-match))
-    (if (= (length fields) 3)
-        (list (parse-version (aref fields 0))
-              (parse-response-code (aref fields 1))
-              (aref fields 2))
+  (scan-to-stringz (version status-code reason) "([^ ]+)? (\\d{3})? (.+)" line
+    (if (and version status-code reason)
+        (list (parse-version version)
+              (parse-response-code status-code)
+              reason)
         (sip-parse-error "Invalid Status-Line: ~a" line))))
 
 (defun parse-response-code (str)
@@ -390,24 +389,21 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
-  (multiple-value-bind (whole-match matches) (scan-to-strings "(sips?):(.*@)?([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
-    (declare (ignore whole-match))
-    (cond
-      (matches
-       (let ((uri (make-instance 'sip-uri))
-             (len (length matches)))
-         (when (> len 0) (setf (scheme uri) (parse-uri-scheme (aref matches 0))))
-         (when (> len 1) (setf (user-info uri) (string-right-trim '(#\@) (aref matches 1))))
-         (when (> len 2)
-           (let ((hostport (parse-hostport (aref matches 2))))
-             (when hostport
-               (setf (host uri) (first hostport))
-               (setf (ip uri)   (second hostport))
-               (setf (port uri) (third hostport)))))
-         (when (> len 3) (parse-uri-parms uri (string-left-trim '(#\;) (aref matches 3))))
-         (when (> len 5) (parse-uri-headers uri (aref matches 5)))
-         uri))
-      (t (sip-parse-error "Invalid SIP-URI: ~a" str)))))
+  (scan-to-stringz (scheme user-info hostport uri-parms hdr-clause headers) "(sips?):(.*@)?([^;]+)(;[^\\?]*)?(\\?(.*))?" str
+    (declare (ignore hdr-clause))
+    (when (not scheme) (sip-parse-error "Invalid SIP-URI: ~a" str))
+    (let ((uri (make-instance 'sip-uri)))
+      (setf (scheme uri) (parse-uri-scheme scheme))
+      (when user-info (setf (user-info uri) (string-right-trim '(#\@) user-info)))
+      (when hostport
+        (let ((hp (parse-hostport hostport)))
+          (when hostport
+            (setf (host uri) (first hp))
+            (setf (ip uri)   (second hp))
+            (setf (port uri) (third hp)))))
+      (when uri-parms (parse-uri-parms uri (string-left-trim '(#\;) uri-parms)))
+      (when headers (parse-uri-headers uri headers))
+      uri)))
 
 (defun parse-extended-uri (sip-uri str)
   (let ((fields (split "\\?" str)))
@@ -423,10 +419,9 @@ otherwise (values nil <sip-parse-error>)"
         (parms nil))
     (when fields
       (dolist (f fields)
-        (multiple-value-bind (whole-match matches) (scan-to-strings "(.*)=(.*)" f)
-          (declare (ignore whole-match))
-          (when (= (length matches) 2)
-            (setf parms (acons (aref matches 0) (aref matches 1) parms))))))
+        (scan-to-stringz (name value) "(.*)=(.*)" f
+          (when (and name value)
+            (setf parms (acons name value parms))))))
     (setf (uri-parms sip-uri) parms)))
 
 (defun parse-uri-headers (sip-uri str)
@@ -435,10 +430,9 @@ otherwise (values nil <sip-parse-error>)"
         (parms nil))
     (when fields
       (dolist (f fields)
-        (multiple-value-bind (whole-match matches) (scan-to-strings "(.*)=(.*)" f)
-          (declare (ignore whole-match))
-          (when (= (length matches) 2)
-            (setf parms (acons (aref matches 0) (aref matches 1) parms))))))
+        (scan-to-stringz (name value) "(.*)=(.*)" f
+          (when (and name value)
+            (setf parms (acons name value parms))))))
     (setf (headers sip-uri) parms)))
 
 (defun parse-version (v)
@@ -450,14 +444,13 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-header-line (str)
   "Give '(hdr-symbol . hdr-value-string) if given a legal header line, otherwise nil"
-  (multiple-value-bind (whole-match fields) (scan-to-strings "([^:]*)\\s*:(.*)" str)
-    (declare (ignore whole-match))
+  (scan-to-stringz (name value) "([^:]*)\\s*:(.*)" str
     (cond
-      ((= (length fields) 2)
-       (let ((hdr (is-header-name (trim-ws (aref fields 0)))))
+      ((and name value)
+       (let ((hdr (is-header-name (trim-ws name))))
          (if hdr
-             (cons hdr (trim-ws (aref fields 1)))
-             (warn "Ignoring unknown header: ~a" (aref fields 0)))))
+             (cons hdr (trim-ws value))
+             (warn "Ignoring unknown header: ~a" name))))
       (t nil))))
 
 (defun parse-headers (lines)

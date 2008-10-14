@@ -8,7 +8,8 @@
            :symbol-name-alist
            :trim-ws
            :join-str
-           :make-keyword))
+           :make-keyword
+           :scan-to-stringz))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp

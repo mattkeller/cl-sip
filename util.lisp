@@ -37,3 +37,16 @@
             (:downcase (string-downcase name))
             (t name))
           :keyword))
+
+(defmacro scan-to-stringz (var-list regex str &body body)
+  "Bind elements of var-list to matches in regex or nil"
+  (let ((g1 (gensym))
+        (g2 (gensym))
+        (i -1))
+  `(multiple-value-bind (,g1 ,g2) (scan-to-strings ,regex ,str)
+     (declare (ignore ,g1))
+     (let (,@(mapcar #'(lambda (v)
+                         (setf i (1+ i))
+                         `(,v (if (and ,g2 (>= (length ,g2) ,i)) (aref ,g2 ,i) nil)))
+                     var-list))
+       ,@body))))
