@@ -390,7 +390,7 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-uri (str)
   "Parse the SIP-URI line into a sip-uri object"
-  (multiple-value-bind (whole-match matches) (scan-to-strings "(sips?):(.*@)([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
+  (multiple-value-bind (whole-match matches) (scan-to-strings "(sips?):(.*@)?([^;]+)(;[^\\?]*)?(\\?(.*))?" str)
     (declare (ignore whole-match))
     (cond
       (matches
