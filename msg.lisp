@@ -450,13 +450,14 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-header-line (str)
   "Give '(hdr-symbol . hdr-value-string) if given a legal header line, otherwise nil"
-  (let ((fields (split ":" str)))
+  (multiple-value-bind (whole-match fields) (scan-to-strings "([^:]*)\\s*:(.*)" str)
+    (declare (ignore whole-match))
     (cond
-      ((and (eql (length fields) 2))
-       (let ((hdr (is-header-name (trim-ws (first fields)))))
+      ((= (length fields) 2)
+       (let ((hdr (is-header-name (trim-ws (aref fields 0)))))
          (if hdr
-             (cons hdr (trim-ws (second fields)))
-             (warn "Ignoring unknown header: ~a" (first fields)))))
+             (cons hdr (trim-ws (aref fields 1)))
+             (warn "Ignoring unknown header: ~a" (aref fields 0)))))
       (t nil))))
 
 (defun parse-headers (lines)
