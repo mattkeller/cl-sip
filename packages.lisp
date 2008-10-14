@@ -15,9 +15,25 @@
         :cl-ppcre
         :cl-sip.util
         :stefil)
-  (:export :call-method-args
-           :responses
-           :headers))
+  (:export :msg
+           :version
+           :headers
+           :bodies
+           :emit
+           :has-header
+           :add-header
+           :response
+           :status-code
+           :sip-uri
+           :scheme
+           :user-info
+           :host
+           :ip
+           :port
+           :uri-parms
+           :sip-parse-error
+           :parse-msg
+           :parse-uri))
 
 (defpackage :cl-sip.client
   (:use :common-lisp
