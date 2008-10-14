@@ -20,8 +20,8 @@
   (if (assoc m +methods+) t nil))
 
 (defun is-method-name (name)
-  (aif (member name +methods+ :key #'cdr :test #'string-equal)
-       (car (car cl-sip.util:it))
+  (aif it (member name +methods+ :key #'cdr :test #'string-equal)
+       (car (car it))
        nil))
 
 (defparameter +headers+
@@ -332,10 +332,9 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun split-msg (str)
   "Return list: (all msg data above the bodies split by CRLF, body section"
-  (let ((fields (cl-ppcre:split (format nil "~a~a" +crlf+ +crlf+) str)))
-    (if fields
-        (list (cl-ppcre:split +crlf+ (first fields)) (second fields))
-        nil)))
+  (aif it (cl-ppcre:split (format nil "~a~a" +crlf+ +crlf+) str)
+       (list (cl-ppcre:split +crlf+ (first it)) (second it))
+       nil))
 
 (defun parse-uri-line (line)
   "Parse the uri line from string; return (method uri version)"
@@ -356,9 +355,9 @@ otherwise (values nil <sip-parse-error>)"
         (sip-parse-error "Invalid Status-Line: ~a" line))))
 
 (defun parse-response-code (str)
-  (aif (parse-integer str :junk-allowed t)
-       (if (is-status-code cl-sip.util:it)
-           cl-sip.util:it
+  (aif it (parse-integer str :junk-allowed t)
+       (if (is-status-code it)
+           it
            (sip-parse-error "Invalid Status-Code: ~a" str))
        (sip-parse-error "Invalid Status-Code: ~a" str)))
 
@@ -447,10 +446,9 @@ otherwise (values nil <sip-parse-error>)"
   (scan-to-stringz (name value) "([^:]*)\\s*:(.*)" str
     (cond
       ((and name value)
-       (let ((hdr (is-header-name (trim-ws name))))
-         (if hdr
-             (cons hdr (trim-ws value))
-             (warn "Ignoring unknown header: ~a" name))))
+       (aif hdr (is-header-name (trim-ws name))
+            (cons hdr (trim-ws value))
+            (warn "Ignoring unknown header: ~a" name)))
       (t nil))))
 
 (defun parse-headers (lines)
@@ -472,11 +470,10 @@ header) are combined with a comma separating their values."
            (hdr-continuation-reduction (alist c)
              "Squash together cdrs when 2nd cons has car of 'continuation"
              (cond ((eq (car c) 'continuation)
-                    (let ((prev-pair (first (last alist))))
-                      (if prev-pair
-                          (rplacd prev-pair (concatenate 'string (cdr prev-pair) " " (cdr c)))
-                          (sip-parse-error "Invalid header: ~a" (car c)))
-                      alist))
+                    (aif prev-pair (first (last alist))
+                         (rplacd prev-pair (concatenate 'string (cdr prev-pair) " " (cdr c)))
+                         (sip-parse-error "Invalid header: ~a" (car c)))
+                      alist)
                    (t (append alist (list c)))))
            (multi-hdr-combination (lst &optional (acc nil))
              "Combine alist entries with eq cars to have cdrs separated by commas"

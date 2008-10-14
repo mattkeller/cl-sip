@@ -14,14 +14,14 @@
     `(let ((,var ,test))
        (if ,var ,then ,else))))
 
-(defmacro aif (test then &optional else)
-  `(if-bind it ,test ,then ,else))
+(defmacro aif (var test then &optional else)
+  `(if-bind ,var ,test ,then ,else))
 
 (defmacro when-bind (var test &body body)
   `(if-bind ,var ,test (progn ,@body)))
 
-(defmacro awhen (test &body body)
-  `(when-bind it ,test ,@body))
+(defmacro awhen (var test &body body)
+  `(when-bind ,var ,test ,@body))
 
 (defun trim-ws (str)
   (let ((ws '(#\Space #\Tab)))
