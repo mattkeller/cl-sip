@@ -396,7 +396,7 @@ otherwise (values nil <sip-parse-error>)"
       (when user-info (setf (user-info uri) (string-right-trim '(#\@) user-info)))
       (when hostport
         (let ((hp (parse-hostport hostport)))
-          (when hostport
+          (when hp
             (setf (host uri) (first hp))
             (setf (ip uri)   (second hp))
             (setf (port uri) (third hp)))))
