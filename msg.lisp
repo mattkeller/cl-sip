@@ -284,6 +284,11 @@
   (:report (lambda (condition stream)
              (format stream "SIP Parse Error: ~a" (text condition)))))
 
+(define-condition unknown-method-error (sip-parse-error)
+  ()
+  (:report (lambda (condition stream)
+             (format stream "Unknown Method Error: ~a" (text condition)))))
+
 (defmacro sip-parse-error (fmt-str &rest args)
   `(error 'sip-parse-error :text (funcall #'format nil ,fmt-str ,@args)))
 
@@ -369,7 +374,7 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-method (m)
   (let ((msym (is-method-name m)))
-    (if msym msym (sip-parse-error "Invalid method: ~a" m))))
+    (if msym msym (error 'unknown-method-error :text m))))
 
 (defun parse-uri-scheme (str)
   (cond ((string-equal str "sip") 'sip)
