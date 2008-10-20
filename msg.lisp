@@ -355,11 +355,17 @@ otherwise (values nil <sip-parse-error>)"
         (sip-parse-error "Invalid Status-Line: ~a" line))))
 
 (defun parse-response-code (str)
-  (aif it (parse-integer str :junk-allowed t)
-       (if (is-status-code it)
-           it
+  (let ((int (parse-integer str :junk-allowed t)))
+    (cond ((null int)
            (sip-parse-error "Invalid Status-Code: ~a" str))
-       (sip-parse-error "Invalid Status-Code: ~a" str)))
+          ((is-status-code int)
+           int)
+          ((is-status-code (- int (mod int 100))) ;; consider x00
+           (let ((new-int (- int (mod int 100))))
+             (if (eq (status-code-type new-int) 'provisional)
+                 183 ;; all unknown prov response become 183
+                 new-int)))
+          (t (sip-parse-error "Invalid Status-Code: ~a" str)))))
 
 (defun parse-method (m)
   (let ((msym (is-method-name m)))
