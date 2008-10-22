@@ -373,8 +373,11 @@ otherwise (values nil <sip-parse-error>)"
           (t (sip-parse-error "Invalid Status-Code: ~a" str)))))
 
 (defun parse-method (m)
-  (let ((msym (is-method-name m)))
-    (if msym msym (error 'unknown-method-error :text m))))
+  (aif msym (is-method-name m)
+       msym
+       (restart-case (error 'unknown-method-error :text m)
+         (allow-method () (make-keyword m))
+         (use-new-value (value) :interactive read-new-value value))))
 
 (defun parse-uri-scheme (str)
   (cond ((string-equal str "sip") 'sip)

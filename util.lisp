@@ -50,3 +50,8 @@
                          `(,v (if (and ,g2 (>= (length ,g2) ,i)) (aref ,g2 ,i) nil)))
                      var-list))
        ,@body))))
+
+(defun read-new-value ()
+  (format *query-io* "~&Enter a new value (unevaluated): ")
+  (force-output *query-io*)
+  (list (read *query-io*)))

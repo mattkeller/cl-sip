@@ -9,7 +9,8 @@
            :trim-ws
            :join-str
            :make-keyword
-           :scan-to-stringz))
+           :scan-to-stringz
+           :read-new-value))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp
