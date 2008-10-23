@@ -54,4 +54,4 @@
 (defun read-new-value ()
   (format *query-io* "~&Enter a new value (unevaluated): ")
   (force-output *query-io*)
-  (list (read *query-io*)))
+  (multiple-value-list (read *query-io*)))
