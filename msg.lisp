@@ -152,13 +152,14 @@
   (cdr (assoc r +status-codes+)))
 
 (defun status-code-type (code)
-  (cond ((and (>= code 100) (< code 200)) 'provisional)
-        ((and (>= code 200) (< code 300)) 'success)
-        ((and (>= code 300) (< code 400)) 'redirection)
-        ((and (>= code 400) (< code 500)) 'client-error)
-        ((and (>= code 500) (< code 500)) 'server-error)
-        ((and (>= code 600) (< code 700)) 'global-failure)
-        (t nil)))
+  (case (floor code 100)
+    (1 'provisional)
+    (2 'success)
+    (3 'redirection)
+    (4 'client-error)
+    (5 'server-error)
+    (6 'global-failure)
+    (t nil)))
 
 ;;; Msg class ----------------------------------------------------
 
