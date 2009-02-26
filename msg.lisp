@@ -76,16 +76,13 @@
   "List of '(<header-symbol> <header-name>...)")
 
 (defun is-header (sym)
-  (dolist (h +headers+)
-    (when (eq sym (first h))
-      (return-from is-header (first h))))
-  nil)
+  (first (find sym +headers+ :key #'first)))
 
 (defun is-header-name (name)
- (dolist (h +headers+)
-    (when (member name (cdr h) :test #'string-equal) ; must be case insensitive
-      (return-from is-header-name (first h))))
- (if (scan "^x-" name) (make-keyword name) nil))
+  (or (first (find name +headers+
+                   :key #'(lambda (h) (cdr h)) 
+                   :test #'(lambda (x y) (member x y :test #'string-equal))))
+      (if (scan "^x-" name) (make-keyword name) nil)))
 
 (defparameter +non-folding-headers+
   '(:www-authenticate :authorization :proxy-authenticate :proxy-authorization)
@@ -519,6 +516,17 @@ header) are combined with a comma separating their values."
 (defsuite msg-suite)
 
 (in-suite msg-suite)
+
+(deftest test-is-header ()
+  (is (is-header :to))
+  (is (is-header :from))
+  (is (not (is-header nil)))
+  (is (not (is-header :foobar)))
+  (is (eq (is-header-name "to") :to))
+  (is (eq (is-header-name "TO") :to))
+  (is (null (eq (is-header-name "") :to)))
+  (is (null (eq (is-header-name nil) :to)))
+  (is (null (eq (is-header-name "x-foo") :to))))
 
 (deftest test-parse-headers ()
   (flet ((header-is (h val alist)
