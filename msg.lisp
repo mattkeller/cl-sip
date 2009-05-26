@@ -194,13 +194,12 @@
                    (headers m)))
    +crlf+))
 
-;; TODO: only return first header of type 'header'
 (defmethod has-header ((m msg) header)
-  (assoc header (headers m)))
+  (find header (headers m) :key #'name))
 
 ;; TODO: prevent multiheader addition??
 (defmethod add-header ((m msg) header-symbol header-string)
-  (setf (headers m) (acons header-symbol header-string (headers m)))
+  (push (make-header header-symbol header-string) (headers m))
   m)
 
 ;;; Response class ----------------------------------------------------
@@ -276,6 +275,65 @@
               (if parms (alist-to-str-pairs parms ";" "=") "")
               (if hdrs  (concatenate 'string "?" (alist-to-str-pairs hdrs "" "=" "&")) ""))))
 
+;;; Header -------------------------------------------------------------
+
+(defclass header ()
+  ((name      :initarg  :name
+              :initform '(error "A header needs a name")
+              :reader   name)
+   (value     :initarg  :value
+              :initform nil
+              :reader   value)
+   (raw-value :initform nil
+              :initarg  :raw-value
+              :reader   raw-value)
+   (parms     :initform nil
+              :initarg  :parms
+              :reader   parms)))
+
+(defmethod print-object ((obj header) stream)
+  (print-unreadable-object (obj stream :identity t :type t)
+    (format stream "Name: ~a; Value: ~a; Parms: ~a; Raw-value: ~a"
+            (name obj) (value obj) (parms obj) (raw-value obj))))
+
+(defun make-header (name raw-value)
+  "Make a header obj given the header's name (symbol) and the
+raw-value (string) of the header. The raw-value will be parsed into
+`value' and `parms'"
+  (destructuring-bind (value parms-alist) (header-parse-raw-value raw-value)
+    (make-instance 'header :name name :value value :raw-value raw-value :parms parms-alist)))
+
+;; TODO: msg can contain multiple :via headers, each containing parms,
+;; which will get squashed into a single header with commas
+;; seperators. My value/get-parm accessors don't deal with this yet.
+;; See the failing TC.
+
+;; field-name: field-value *(;parameter-name=parameter-value)
+(defun header-parse-raw-value (str)
+  "Return (value parms-alist)"
+  (let ((parm-alist nil)
+        (lst (split ";" str)))
+    (if (eql 1 (length lst))
+        (list str nil)
+        (progn
+          (dolist (phrase (cdr lst))
+            (aif fvlst (split "=" phrase)
+                 (setf parm-alist
+                       (alist-push-uniq parm-alist (first fvlst) (second fvlst) :test #'string-equal))))
+          (list (first lst) parm-alist)))))
+
+(defmethod header-has-parm ((obj header) parm-name)
+  (not (null (header-get-parm obj parm-name))))
+
+(defmethod header-get-parm ((obj header) parm-name)
+  (assoc parm-name (parms obj) :test #'string-equal))
+
+(defmethod header-set-parm ((obj header) name value)
+  (let ((parm (header-get-parm obj name)))
+    (if parm
+      (setf (cdr parm) value)
+      (setf (slot-value obj 'parms) (acons name value (parms obj))))))
+
 ;;; Parsing ------------------------------------------------------------
 
 (define-condition sip-parse-error (error)
@@ -317,7 +375,8 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-request (msg-lines body)
   (let ((uri-vals (parse-uri-line (first msg-lines)))
-        (headers (parse-headers (cdr msg-lines))))
+        (headers (mapcar #'(lambda (h) (make-header (car h) (cdr h)))
+                         (parse-headers (cdr msg-lines)))))
     (make-instance 'request
                    :method  (first uri-vals)
                    :uri     (second uri-vals)
@@ -327,7 +386,8 @@ otherwise (values nil <sip-parse-error>)"
 
 (defun parse-response (msg-lines body)
   (let ((status-vals (parse-status-line (first msg-lines)))
-        (headers (parse-headers (cdr msg-lines))))
+        (headers (mapcar #'(lambda (h) (make-header (car h) (cdr h)))
+                         (parse-headers (cdr msg-lines)))))
     (make-instance 'response
                    :status-code (second status-vals)
                    :version (first status-vals)
@@ -549,16 +609,16 @@ header) are combined with a comma separating their values."
     (is (string= (ip (uri req)) nil))
     (is (string= (user-info (uri req)) "matthewk"))
     (is (= (port (uri req)) 5060))
-    (is (string= (cdr (has-header req :to)) "matthewk"))
-    (is (string= (cdr (has-header req :from)) "bob"))))
+    (is (string= (value (has-header req :to)) "matthewk"))
+    (is (string= (value (has-header req :from)) "bob"))))
 
 (deftest test-resp-parse ()
   (let ((resp (parse-msg (build-msg-str '("SIP/2.0 200 Ok" "t: bob" "f: matt")))))
     (is (string= (version resp) "SIP/2.0"))
     (is (= (status-code resp) 200))
     (is (string= (status-code-str (status-code resp)) "Ok"))
-    (is (cdr (has-header resp :to)) "bob")
-    (is (cdr (has-header resp :from)) "matt")))
+    (is (string= (value (has-header resp :to)) "bob"))
+    (is (string= (value (has-header resp :from)) "matt"))))
 
 (deftest test-request-or-response-p ()
   (is (not (can-parse-p #'request-or-response-p "")))
@@ -600,8 +660,9 @@ CSeq: 1826 REGISTER
 Contact: <sip:bob@192.0.2.4>
 Expires: 7200
 Content-Length: 0"))))
-    (is (string= (cdr (has-header msg :via))
-                 "SIP/2.0/UDP bobspc.biloxi.com:5060;branch=z9hG4bKnashds7 ;received=192.0.2.4")))
+    (is (string= (value (has-header msg :via)) "SIP/2.0/UDP bobspc.biloxi.com:5060"))
+    (is (string= (cdr (header-get-parm (has-header msg :via) "branch")) "z9hG4bKnashds7 "))
+    (is (string= (cdr (header-get-parm (has-header msg :via) "received")) "192.0.2.4")))
   (is (can-parse-p #'parse-msg (crlfify
 "INVITE sip:bob@biloxi.com SIP/2.0
 Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKnashds8
@@ -640,7 +701,7 @@ Call-ID: a84b4c76e66710
 Contact: <sip:bob@192.0.2.4>
 CSeq: 314159 INVITE
 Content-Length: 0"))))
-      (is (string= (cdr (has-header msg :via))
+      (is (string= (value (has-header msg :via))
                    (concatenate 'string
                                 "SIP/2.0/UDP server10.biloxi.com;branch=z9hG4bK4b43c2ff8.1 ;received=192.0.2.3,"
                                 "SIP/2.0/UDP bigbox3.site3.atlanta.com;branch=z9hG4bK77ef4c2312983.1 ;received=192.0.2.2,"

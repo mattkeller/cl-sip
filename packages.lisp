@@ -10,7 +10,8 @@
            :join-str
            :make-keyword
            :scan-to-stringz
-           :read-new-value))
+           :read-new-value
+           :alist-push-uniq))
 
 (defpackage :cl-sip.msg
   (:use :common-lisp

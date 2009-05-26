@@ -55,3 +55,9 @@
   (format *query-io* "~&Enter a new value (unevaluated): ")
   (force-output *query-io*)
   (multiple-value-list (read *query-io*)))
+
+(defun alist-push-uniq (alist key value &optional &key (test #'eq))
+  "Push (key . value) onto alist unless key is already in alist"
+  (if (assoc key alist :test test)
+      alist
+      (acons key value alist)))
