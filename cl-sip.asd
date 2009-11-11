@@ -25,7 +25,7 @@
 
 (defsystem cl-sip
   :name "cl-sip"
-  :version "0.0.0"
+  :version "0.1.0"
   :maintainer "Matt Keller"
   :description "cl-sip"
   :long-description "Simple SIP stack in Common Lisp"
